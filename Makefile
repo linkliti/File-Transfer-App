@@ -1,3 +1,11 @@
+ifeq ($(OS),Windows_NT)
+    OPEN := powershell
+else
+    UNAME := $(shell uname -s)
+    ifeq ($(UNAME),Linux)
+        OPEN := xdg-open
+    endif
+endif
 # Сообщение по умолчанию
 default:
 	@echo Commands:
@@ -7,7 +15,7 @@ default:
 	@echo docker_: build, run, stop, term
 
 # Список зависимостей
-reqs: remove venv
+reqs: remove
 	@python -m pip list --format=freeze > requirements.txt
 
 # Сборка пакета
@@ -15,8 +23,10 @@ build: pep8
 	@python setup.py sdist --formats=zip
 
 # Генерация документации
-doc:
-	@python setup.py build_sphinx
+doc: pep8
+	@sphinx-apidoc -o ./docs/ ./FTA/
+	@sphinx-build -b html docs docs/_build/html
+	@$(OPEN) ./docs/_build/html/index.html
 
 # Установка
 install: build
@@ -32,7 +42,7 @@ remove:
 
 # Настройка среды Python для разработки
 venv:
-	@pip install --upgrade setuptools autopep8 sphinx pyside6 docopt
+	@pip install --upgrade setuptools autopep8 sphinx sphinx_rtd_theme
 
 # Форматирование кода
 pep8:
@@ -44,13 +54,13 @@ run: pep8
 	@python -m FTA
 
 # Создание Docker образа
-docker_build: build doc
+docker_build: build
 	@docker build -t fta_image .
 
 # Запуск Docker
 docker_run:
-#	@echo Docs: http://localhost:8099
-	@docker run -e DISPLAY=unix$DISPLAY -d --rm -p8099:80 fta_image
+#	Требуется X Server
+	@docker run --rm fta_image
 
 # Остановка Docker
 docker_stop:

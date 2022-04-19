@@ -15,14 +15,18 @@ setuptools.setup(
     description='File Transfer App on Python',
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
+    include_package_data=True,
     packages=['FTA'],
+    package_data={
+        'FTA': ['style/*'],
+    },
     entry_points={
         'console_scripts': [
             'FTA = FTA.__main__:main'
         ]
     },
     install_requires=[
-        'pyside6',
+        'pyqt5',
         'docopt'
     ],
     python_requires='>=3.6, <4'

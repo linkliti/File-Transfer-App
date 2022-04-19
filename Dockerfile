@@ -1,15 +1,23 @@
 # Базовый образ
-FROM ubuntu:latest
+FROM ubuntu:20.04
+
+# Игнорирование настройки таймзоны
+ARG DEBIAN_FRONTEND=noninteractive
 
 # Python
 RUN apt update
-RUN apt install -y python3 python3-pip \
+RUN apt install -y python3-pip \
     && cd /usr/bin \
     && ln -s python3 python
 
 # Пакеты Python через apt (быстрая установка)
+RUN apt install -y python3-docopt python3-pyqt5
 
-RUN apt install python3-docopt
+# Пользователь
+RUN adduser --quiet --disabled-password qtuser && usermod -a -G audio qtuser
+
+# fix: libGL error: No matching fbConfigs or visuals found
+ENV LIBGL_ALWAYS_INDIRECT=1
 
 # Копирование папкок хоста в папки /mnt/*
 ADD ./dist /mnt/package
@@ -18,11 +26,9 @@ ADD ./build/sphinx/html /mnt/doc
 # Установка пакета
 RUN cd /mnt/package && python -m pip install FTA-1.0.0.zip
 
-# Дисплей
+# Дисплей и пользователь
 ENV DISPLAY=host.docker.internal:0.0
+USER qtuser
 
 # Запуск
-CMD ["python" , "-m" , "FTA", "-t", "text"]
-# Порт
-#EXPOSE 80
-#CMD ["python" , "-m" , "http.server", "-d", "/mnt/doc", "80"]
+CMD ["python" , "-m" , "FTA"]
