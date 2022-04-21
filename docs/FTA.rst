@@ -4,6 +4,14 @@ FTA package
 Submodules
 ----------
 
+FTA.client module
+-----------------
+
+.. automodule:: FTA.client
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 FTA.init module
 ---------------
 
@@ -12,10 +20,10 @@ FTA.init module
    :undoc-members:
    :show-inheritance:
 
-FTA.sftp module
----------------
+FTA.server module
+-----------------
 
-.. automodule:: FTA.sftp
+.. automodule:: FTA.server
    :members:
    :undoc-members:
    :show-inheritance:

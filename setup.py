@@ -27,7 +27,13 @@ setuptools.setup(
     },
     install_requires=[
         'pyqt5',
-        'docopt'
+        'docopt',
+        'pyftpdlib'
     ],
+    extras_require={
+        'dev': [
+            'pytest'
+        ]
+    },
     python_requires='>=3.6, <4'
 )

@@ -1,19 +1,23 @@
 """File Transfer App
 Usage:
-    FTA [-t=TYPE]
-    FTA -h | --help
+    FTA [-g]
+    FTA [--server|--client]
+    FTA [-h|--help]
+    FTA [-s|--scan]
 
 Options:
-    -h --help           Show this screen
-    -t=<gui|text>       Change type [default: gui]
+    -h --help               Show help
+    -g --gui                Graphical user interface
+    --server                Launch server
+    --client                Launch client scanner
 """
 from FTA import init
 import docopt
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)
-    mode = args['-t']
-    if mode == 'text':
-        init.text_mode()
-    elif mode == 'gui':
+    if args['--gui'] is False:
+        print(args)
+        init.text_mode(args)
+    else:
         init.window_mode()

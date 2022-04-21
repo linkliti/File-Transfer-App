@@ -24,6 +24,7 @@ build: pep8
 
 # Генерация документации
 doc: pep8
+	@powershell rm .\docs\FTA.rst
 	@sphinx-apidoc -o ./docs/ ./FTA/
 	@sphinx-build -b html docs docs/_build/html
 	@$(OPEN) ./docs/_build/html/index.html
@@ -34,7 +35,7 @@ install: build
 
 # Установка в режиме разработчика
 dev: pep8
-	@pip install -e .
+	@pip install -e .[dev]
 
 # Удаление
 remove:
@@ -51,7 +52,7 @@ pep8:
 
 # Запуск
 run: pep8
-	@python -m FTA
+	@python -m FTA $(ARG)
 
 # Создание Docker образа
 docker_build: build
@@ -69,3 +70,7 @@ docker_stop:
 # Консоль Docker образа
 docker_term:
 	@docker run -it fta_image bash
+
+# Тестирование
+test:
+	@python -m pytest -s ./FTA/tests/test_client.py
