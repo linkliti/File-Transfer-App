@@ -18,9 +18,9 @@ class UserData():
         """
         Метод инициализации
 
-            ip          - IP адрес хоста
+            ip          - IP адрес текущего ПК
             port        - Используемый порт
-            hostname    - Имя хоста
+            hostname    - Имя текущего ПК
 
             Сервер:
             is_random   - Флаг незаданных данных пользователя
@@ -34,7 +34,7 @@ class UserData():
             path_save   - Путь сохранения файлов
         """
         self.ip = get_ip()
-        self.port = args['--port']
+        self.port = int(args['--port'])
         self.hostname = socket.gethostname()
         # Сервер
         self.is_random = False if (

@@ -12,8 +12,8 @@ Usage:
     FTA gui
     FTA scan [<target>]
     FTA server [<path>] [-p=<port>] [-u=<user>] [--pwd=<pwd>] [-w]
-    FTA send <path> <target> [-p=<port>] [--pwd=<pwd>]
-    FTA listen <path_save> [-p=<port>] [-a]
+    FTA send <target> [<path>] [-p=<port>] [--pwd=<pwd>]
+    FTA listen [<target>] [<path_save>] [-p=<port>] [-a]
     FTA (-h|--help)
 
 Options:
@@ -31,7 +31,7 @@ from docopt import docopt
 DEFAULT_ARG = {'--auto-accept': False,
                '--help': False,
                '--ip': None,
-               '--port': '2121',
+               '--port': 2121,
                '--pwd': None,
                '--user': None,
                '--write': False,

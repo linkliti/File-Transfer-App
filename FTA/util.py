@@ -1,14 +1,15 @@
 import socket
 from pkg_resources import resource_filename
 import re
+import os
 
 
-def pkgfile(path):
+def pkgfile(path) -> str:
     """Получить файл пакета"""
     return (resource_filename('FTA', path))
 
 
-def make_pass():
+def make_pass() -> str:
     """Создать 13 значный пароль"""
     import secrets
     import string
@@ -17,7 +18,7 @@ def make_pass():
     return pwd
 
 
-def is_ip(ip):
+def is_ip(ip) -> int:
     """ Проверка полных и неполных IP адресов (2-4 колонки)"""
     col_count = ip.count('.') + 1
     if col_count > 1 and col_count < 5:
@@ -28,7 +29,7 @@ def is_ip(ip):
         return 0
 
 
-def get_ip():
+def get_ip() -> str:
     """ Получить локальный IP """
     sc = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sc.settimeout(0)
@@ -40,6 +41,22 @@ def get_ip():
     finally:
         sc.close()
     return IP
+
+
+def get_all_ip() -> list:
+    """ Получить все локальные IP """
+    import netifaces
+    from platform import uname
+    ips = [netifaces.ifaddresses(iface)
+           [netifaces.AF_INET][0]['addr'] for iface in
+           netifaces.interfaces() if netifaces.AF_INET in
+           netifaces.ifaddresses(iface)]
+    # Исправление для WSL
+    if 'microsoft-standard' in uname().release:
+        ips.append(
+            os.popen('''cat /etc/resolv.conf | grep nameserver \
+                     | cut -d ' ' -f 2''').read())
+    return ips
 
 
 if __name__ == '__main__':

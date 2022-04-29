@@ -1,14 +1,23 @@
 import setuptools
 from os import path
+import re
 
 
 def read(fname):
-    return open(path.join(path.dirname(__file__), fname), encoding="utf-8").read()
+    return open(path.join(path.dirname(__file__), fname),
+                encoding="utf-8").read()
+
+
+metadata = dict(
+    re.findall(
+        r'\__([a-z]+)__ = "([^"]+)', read("FTA/__init__.py")
+    )
+)
 
 
 setuptools.setup(
     name='FTA',
-    version='1.0.0',
+    version=metadata["version"],
     author="Alexander Popov",
     author_email="popovalex1100@gmail.com",
     url="https://github.com/linkliti/File-Transfer-App",

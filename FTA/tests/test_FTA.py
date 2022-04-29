@@ -14,6 +14,7 @@ def udata():
 
 
 def test_ip_check():
+    # Тест текущего IP
     import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.settimeout(0)
@@ -24,6 +25,7 @@ def test_ip_check():
 
 
 def test_no_user_pass_fields():
+    # Тест автогенерации пароля
     args = DEFAULT_ARG
     assert init.UserData(args).is_random == True
     args['--user'] = 'user'
@@ -32,13 +34,8 @@ def test_no_user_pass_fields():
     assert init.UserData(args).is_random == False
 
 
-def test_ip_list():
-    s = '192.168.1.71'
-    ip = '.'.join(s.split('.')[:-1])
-    print(ip)
-
-
 def test_server_run(udata):
+    # Тестовый запуск сервера
     from time import sleep
     thread = Thread(target=server.server, args=(udata,))
     thread.daemon = True
@@ -46,7 +43,6 @@ def test_server_run(udata):
     print("Starting server for 3 seconds")
     sleep(3)
     print("Done")
-    return
 
 
 @pytest.mark.parametrize('ip,res', [
@@ -69,6 +65,7 @@ def test_server_run(udata):
     ('3...3',           0),
 ])
 def test_ip_regex(ip, res):
+    # Проверка IP адреса
     assert util.is_ip(ip) == res
 
 
@@ -86,5 +83,40 @@ def test_ip_regex(ip, res):
     ('text'),
 ])
 def test_scan(ip, udata):
+    # Проверка сканера
     udata.target_ip = ip
     assert client.scan(udata) == 0
+
+
+def test_req_data(udata):
+    # Проверка отправляемых данных (дебаг)
+    req = server.RequestData(udata).send_form()
+    print()
+    print(type(req))
+    print('Data:')
+    print(req)
+
+
+def test_self_response(monkeypatch, udata):
+    # Самоотправка запроса (отказ)
+    import concurrent.futures
+
+    def alt_input(x):
+        return 0
+
+    # Переопределение input()
+    monkeypatch.setattr('builtins.input', alt_input)
+
+    def cl(udata):
+        return client.listen(udata)
+
+    def serv(udata):
+        return server.send(udata)
+
+    udata.target_ip = udata.ip
+    th1 = Thread(target=cl, args=(udata,), daemon=True)
+    th1.start()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(serv, udata)
+        val = future.result()
+    assert val == 1
