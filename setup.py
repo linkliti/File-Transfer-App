@@ -32,8 +32,13 @@ setuptools.setup(
     ],
     extras_require={
         'dev': [
-            'pytest'
+            'setuptools',
+            'pytest',
+            'setuptools',
+            'autopep8',
+            'sphinx',
+            'sphinx_rtd_theme'
         ]
     },
-    python_requires='>=3.6, <4'
+    python_requires='>=3.7, <4'
 )

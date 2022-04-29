@@ -34,16 +34,12 @@ install: build
 	@pip install dist\FTA-1.0.0.zip
 
 # Установка в режиме разработчика
-dev: pep8
+dev:
 	@pip install -e .[dev]
 
 # Удаление
 remove:
 	@pip uninstall FTA
-
-# Настройка среды Python для разработки
-venv:
-	@pip install --upgrade setuptools autopep8 sphinx sphinx_rtd_theme
 
 # Форматирование кода
 pep8:
@@ -73,4 +69,4 @@ docker_term:
 
 # Тестирование
 test:
-	@python -m pytest -s ./FTA/tests/test_client.py
+	@python -m pytest -s ./FTA/tests/test_FTA.py$(ARG)
