@@ -3,13 +3,14 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt
 
 import sys
+import os
 
 from threading import Thread
 import socket
 
 from FTA.server import server, send
 from FTA.client import listen, scan
-from FTA.util import get_ip, make_pass, pkgfile
+from FTA.util import get_ip, make_pass, pkgfile, homedir
 from time import sleep
 
 
@@ -18,34 +19,35 @@ class UserData():
         """
         Метод инициализации
 
-            ip          - IP адрес текущего ПК
-            port        - Используемый порт
-            hostname    - Имя текущего ПК
+        ip          - IP адрес текущего ПК
+        port        - Используемый порт
+        hostname    - Имя текущего ПК
 
-            Сервер:
-            is_random   - Флаг незаданных данных пользователя
-            user        - Пользователь
-            pwd         - Пароль FTP сервера
-            path        - Путь (для сервера)
-            write       - Разрешение на запись
+        Сервер:
+        is_random   - Флаг незаданных данных пользователя
+        user        - Пользователь ('fta_server')
+        pwd         - Пароль FTP сервера
+        files       - Путь файлов
+        write       - Разрешение на запись
 
-            Клиент:
-            target_ip   - Целевые IP адреса
-            path_save   - Путь сохранения файлов
+        Клиент:
+        target_ip   - Целевые IP адреса
+        path_save   - Путь сохранения файлов
         """
         self.ip = get_ip()
         self.port = int(args['--port'])
         self.hostname = socket.gethostname()
+
         # Сервер
-        self.is_random = False if (
-            args['--user'] and args['--pwd']) else True
-        self.user = args['--user'] or 'fta_server'
+        self.is_random = False if args['--pwd'] else True
+        self.user = 'fta_server'
         self.pwd = args['--pwd'] or make_pass()
-        self.path = args['<path>'] or '.'
+        self.files = args['<files>'] if args['<files>'] else ['.']
         self.write = args['--write']
+
         # Клиент
-        self.target_ip = args['<target>']
-        self.save = args['<path_save>']
+        self.target_ip = args['<target_ip>']
+        self.path_save = args['<path_save>']
 
 
 def text_mode(args) -> None:
@@ -61,6 +63,8 @@ def text_mode(args) -> None:
             func = send
         elif args['server']:
             func = server
+        # Папка конфигурации
+        homedir()
         # Запуск основного процесса
         thread = Thread(target=func, args=(session,))
         thread.daemon = True

@@ -1,5 +1,5 @@
 from threading import Thread, Lock
-from FTA.util import is_ip, get_all_ip
+from FTA.util import is_ip, get_all_ip, readable_size
 from FTA.__init__ import __version__
 import socket
 import json
@@ -96,31 +96,73 @@ def listen(s) -> None:
     """ Ожидание отправителя"""
     # Прослушивание
     ServerSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    ip = s.target_ip or s.ip
+    ip = s.target_ip[0] or s.ip
     print(f'Прослушивание "{ip}:{s.port}"...')
     ServerSock.bind((ip, s.port))
     ServerSock.listen(1)
     while True:
         # Подключение
-        clientConnected, clientAddress = ServerSock.accept()
-        print("Входящее подключение %s:%s" %
-              (clientAddress[0], clientAddress[1]))
-        # Получение информации
-        data = clientConnected.recv(1024)
-        req = json.loads(data.decode())
-        # Обработка запроса
+        clientConnected, cl_adr = ServerSock.accept()
+        print(f'Входящее подключение {cl_adr[0]}:{cl_adr[1]}')
+        files_list = {}  # Список файлов {путь: размер}
         try:
-            if req['FTA_version'] == __version__:
-                print(f"Запрос на передачу от {req['hostname']}")
-                q = input(f"Согласиться? (1-Да 0-Нет): ")
-                if q in ('y', 'Y', '1', 'Д', 'д'):
-                    confirm = True
-                else:
-                    confirm = False
+            # Получение осноной информации
+            data = clientConnected.recv(512)
+            req = json.loads(data.decode())
+            # Подтверждение
+            clientConnected.send('conf'.encode())
+
+            # Получение списка файлов
+            temp_list = {}
+            data = clientConnected.recv(req['files_list_size'])
+            temp_list = json.loads(data.decode())
+            files_list = {**files_list, **temp_list}
+            del files_list['end']
+
+        # Неудачная обработка JSON
+        except json.JSONDecodeError as e:
+            print(f'Отключение от {cl_adr[0]}:{cl_adr[1]}', end=' - ')
+            print('Был передан поврежденный JSON')
+            print('Информация:', type(e).__name__, '-', e)
+            clientConnected.close()
+            break
+
+        # Подсчет кол-ва файлов и их размер
+        if not (sum(files_list.values()) == req['files_size'] and
+                len(files_list) == req['files_count']):
+            print(f'Отключение от {cl_adr[0]}:{cl_adr[1]}', end=' - ')
+            print('Список файлов не совпадает с ожидаемой передачей')
+            print('Информация:', type(e), e)
+            clientConnected.close()
+            break
+
+        # Обработка запроса
+        # Разные версии
+        if not req['FTA_version'] == __version__:
+            print(f"Разная версия программ (текущая: ", end=' ')
+            print(f"{__version__} полученная: {req['FTA_version']}")
+
+        # Информирование
+        print(f"Запрос на передачу от {req['hostname']}")
+        print(f"Всего файлов: {req['files_count']}", end=' ')
+        print(f"Размер: {readable_size(req['files_size'])}")
+        while True:
+            q = input(f"Согласиться? (Да|Нет|Файлы): ")
+            # Согласие
+            if q[0] in ('y', 'Y', '1', 'Д', 'д'):
+                confirm = True
+                break
+            # Список файлов
+            elif q[0] in ('L', 'l', 'Л', 'л', 'Ф',
+                          'ф', 'F', 'f', 'С', 'с'):
+                for dict_entry in files_list:
+                    print(dict_entry)
+                    # print(f'Файл: {file[0]}, \
+                    # Размер: {readable_size(file[1])}')
+            # Отказ
             else:
-                print('Неподдерживаемая версия')
-        except KeyError:
-            print('Был отправлен некорректный запрос')
+                confirm = False
+                break
         # Отправка ответа
         resp = json.dumps({'confirm': confirm})
         clientConnected.send(resp.encode())

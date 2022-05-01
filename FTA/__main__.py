@@ -1,62 +1,59 @@
 """
 File Transfer App
 
-gui - Графический интерфейс (автозапуск если нет аргументов)
-scan - Сканирование ip адресов
-server - Запуск FTP сервера
-send - Запуск FTP сервера и отправка запроса
-listen - Режим ожидания запросов
+gui     - Графический интерфейс (автозапуск если нет аргументов)
+scan    - Сканирование IP адресов (по умолч. - локальные)
+server  - Запуск FTP сервера
+send    - Запуск FTP сервера и отправка запроса цели
+listen  - Режим ожидания запросов (по умолч. - прослушка локального адреса)
+
+Разделитель для файлов - '|'
 
 Usage:
-    FTA
-    FTA gui
-    FTA scan [<target>]
-    FTA server [<path>] [-p=<port>] [-u=<user>] [--pwd=<pwd>] [-w]
-    FTA send <target> [<path>] [-p=<port>] [--pwd=<pwd>]
-    FTA listen [<target>] [<path_save>] [-p=<port>] [-a]
-    FTA (-h|--help)
+    FTA [gui]
+    FTA (-h|--help|--version)
+    FTA scan    [<target_ip>]...
+    FTA server  [<files>]...                [-p=<port>] [--pwd=<pwd>] [-w]
+    FTA send    <target_ip> [<files>]...    [-p=<port>] [--pwd=<pwd>]
+    FTA listen  [<path_save>] [<target_ip>] [-p=<port>] [--auto-accept]
 
 Options:
+    --version               Показать версию
     -h --help               Показать помощь
     -p --port=<port>        Порт [default: 2121]
     -w --write              Разрешение на запись
-    -u --user=<user>        Пользователь (FTP сервер)
     --pwd=<pwd>             Пароль (FTP сервер)
     -i --ip=<ip>            IP адреса
     -a --auto-accept        Подтверждать прием файлов
 """
 from FTA.init import text_mode, window_mode
+from FTA.__init__ import __version__
 from docopt import docopt
 
 DEFAULT_ARG = {'--auto-accept': False,
                '--help': False,
-               '--ip': None,
-               '--port': 2121,
+               '--port': '2121',
                '--pwd': None,
-               '--user': None,
+               '--version': False,
                '--write': False,
-               '<path>': None,
+               '<files>': [],
                '<path_save>': None,
-               '<target>': None,
+               '<target_ip>': [],
                'gui': True,
                'listen': False,
-               'scan': False,
+               'scan': True,
                'send': False,
                'server': False}
 
 if __name__ == '__main__':
-    args = docopt(__doc__)
+    args = docopt(__doc__, version=__version__)
     # Запуск без параметров
-    if not (args['gui'] or args['listen'] or args['scan'] or
+    if not (args['listen'] or args['scan'] or
             args['send'] or args['server']):
         # Запуск по конфигурации
         args = DEFAULT_ARG
-    no_arg_flag = True
-    for arg in args.values():
-        if arg is True:
-            no_arg_flag = False
     # Запуск граф. интерф. при флаге gui или если нет флагов
-    if args['gui'] or no_arg_flag:
+    if args['gui']:
         window_mode()
     else:
         # print(args)

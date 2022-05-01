@@ -1,7 +1,80 @@
 import socket
 from pkg_resources import resource_filename
+from glob import glob
 import re
 import os
+import shutil
+import secrets
+import string
+import netifaces
+from platform import uname
+
+SIZE_VAL = ('байт', 'КБайт', 'МБайт', 'ГБайт', 'ТБайт', 'ПБайт')
+
+
+def readable_size(size) -> tuple:
+    """ Получить читабельный размер """
+    size_t = 0
+    while size // 1024 > 0 and size_t < 6:
+        size /= 1024
+        size_t += 1
+    return (size, SIZE_VAL[size_t])
+
+
+def copy_handler(filename) -> str:
+    """ Обновление индекса одинаковых имен """
+    name, ext = os.path.splitext(filename)
+    # Исправления tar.gz
+    part = os.path.splitext(name)[1]
+    while part != '':
+        name = name[:len(name)-len(part)]
+        ext = part + ext
+        part = os.path.splitext(name)[1]
+    # Проверка существующего индекса
+    index = re.findall('\s\(\d+\)$', name)
+    if index:
+        num = int(re.findall('\d+', index[0])[0])
+        name = name[:len(name)-len(index[0])] + f' ({str(num+1)})'
+    # Не существует
+    else:
+        name = name + ' (2)'
+    return name + ext
+
+
+def abs_path(path) -> str:
+    """ Получить абсолютный путь """
+    return os.path.abspath(path).replace('\\', '/')
+
+
+def clear_folder(folder_path) -> None:
+    """Очистить содержимое папки"""
+    for filename in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print(f'Не удалось удалить {file_path} : {e}')
+
+
+def parse_folder(folder_path) -> list:
+    """Получить рекурсивно все файлы из папки"""
+    return [abs_path(y) for x in os.walk(folder_path)
+            for y in glob(os.path.join(x[0], '*.*'))]
+
+
+def homedir() -> str:
+    """ Получить домашнюю папку """
+    try:
+        directory = os.path.expanduser("~").replace('\\', '/')
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+    except OSError as e:
+        print(f"Ошибка доступа к домашней папке: {e}")
+        directory = '.'
+    return directory
 
 
 def pkgfile(path) -> str:
@@ -10,11 +83,9 @@ def pkgfile(path) -> str:
 
 
 def make_pass() -> str:
-    """Создать 13 значный пароль"""
-    import secrets
-    import string
+    """Создать 10 значный пароль"""
     alphabet = string.ascii_letters + string.digits
-    pwd = ''.join(secrets.choice(alphabet) for i in range(13))
+    pwd = ''.join(secrets.choice(alphabet) for i in range(10))
     return pwd
 
 
@@ -45,8 +116,6 @@ def get_ip() -> str:
 
 def get_all_ip() -> list:
     """ Получить все локальные IP """
-    import netifaces
-    from platform import uname
     ips = [netifaces.ifaddresses(iface)
            [netifaces.AF_INET][0]['addr'] for iface in
            netifaces.interfaces() if netifaces.AF_INET in
