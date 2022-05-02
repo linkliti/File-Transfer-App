@@ -15,20 +15,21 @@ Usage:
     FTA scan    [<target_ip>]...
     FTA server  [<files>]...                [-p=<port>] [--pwd=<pwd>] [-w]
     FTA send    <target_ip> [<files>]...    [-p=<port>] [--pwd=<pwd>]
-    FTA listen  [<path_save>] [<target_ip>] [-p=<port>] [--auto-accept]
+    FTA listen  [<save_path>] [<target_ip>] [-p=<port>] [--auto-accept]
 
 Options:
     --version               Показать версию
     -h --help               Показать помощь
     -p --port=<port>        Порт [default: 2121]
-    -w --write              Разрешение на запись
+    -w --write              Разрешение на изменение файлов
     --pwd=<pwd>             Пароль (FTP сервер)
     -i --ip=<ip>            IP адреса
     -a --auto-accept        Подтверждать прием файлов
 """
-from FTA.init import text_mode, window_mode
-from FTA.__init__ import __version__
 from docopt import docopt
+
+from FTA.__init__ import __version__
+from FTA.init import text_mode, window_mode
 
 DEFAULT_ARG = {'--auto-accept': False,
                '--help': False,
@@ -37,7 +38,7 @@ DEFAULT_ARG = {'--auto-accept': False,
                '--version': False,
                '--write': False,
                '<files>': [],
-               '<path_save>': None,
+               '<save_path>': None,
                '<target_ip>': [],
                'gui': True,
                'listen': False,

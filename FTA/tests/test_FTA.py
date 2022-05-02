@@ -1,8 +1,9 @@
-import pytest
 import os
 import sys
-from FTA import client, server, init, util
 from threading import Thread
+
+import pytest
+from FTA import client, init, server, util
 from FTA.__main__ import DEFAULT_ARG
 
 
@@ -43,7 +44,7 @@ def test_no_user_pass_fields():
     assert init.UserData(args).is_random == False
 
 
-def test_self_response(monkeypatch, udata, files):
+def test_self_deny_response(monkeypatch, udata, files):
     # Самоотправка запроса (отказ)
     import concurrent.futures
     action = ['n', 'f']
@@ -63,7 +64,7 @@ def test_self_response(monkeypatch, udata, files):
         return server.send(udata)
 
     udata.target_ip = [udata.ip]
-    udata.files = ['./test_files/b.txt',
+    udata.file_targets = ['./test_files/b.txt',
                    './test_files/3.txt',
                    './test_files/subfolder',
                    './test_files/subfolder2/3.txt', ]
@@ -73,3 +74,35 @@ def test_self_response(monkeypatch, udata, files):
         future = executor.submit(serv, udata)
         val = future.result()
     assert val == 1
+
+
+def test_self_accept_response(monkeypatch, udata, files):
+    # Самоотправка запроса (согласие)
+    import concurrent.futures
+    action = ['y', 'f']
+
+    def alt_input(x):
+        act = action.pop()
+        print(x, act, sep='')
+        return act
+
+    # Переопределение input()
+    monkeypatch.setattr('builtins.input', alt_input)
+
+    def cl(udata):
+        return client.listen(udata)
+
+    def serv(udata):
+        return server.send(udata)
+
+    udata.write = True
+    udata.pwd = '90'
+    udata.target_ip = [udata.ip]
+    udata.file_targets = ['./test_files/1.txt',
+                   './test_files/subfolder']
+    th1 = Thread(target=cl, args=(udata,), daemon=True)
+    th1.start()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(serv, udata)
+        val = future.result()
+    assert val == 0

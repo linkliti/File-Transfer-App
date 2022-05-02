@@ -1,8 +1,10 @@
+from __future__ import absolute_import
 import socket
 from pkg_resources import resource_filename
 from glob import glob
 import re
 import os
+import sys
 import shutil
 import secrets
 import string
@@ -10,6 +12,10 @@ import netifaces
 from platform import uname
 
 SIZE_VAL = ('байт', 'КБайт', 'МБайт', 'ГБайт', 'ТБайт', 'ПБайт')
+
+def drive(file_path) -> str:
+    """ Получить диск файла """
+    return ((os.path.splitdrive(abs_path(file_path))[0])) or ''
 
 
 def readable_size(size) -> tuple:
@@ -46,8 +52,11 @@ def abs_path(path) -> str:
     return os.path.abspath(path).replace('\\', '/')
 
 
-def clear_folder(folder_path) -> None:
+def clear_folder(folder_path, safe_flag=False) -> None:
     """Очистить содержимое папки"""
+    # Флаг безопасной очистки
+    if safe_flag and ('/.fta_shared' not in abs_path(folder_path)):
+        return
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
         try:
@@ -68,13 +77,21 @@ def parse_folder(folder_path) -> list:
 def homedir() -> str:
     """ Получить домашнюю папку """
     try:
-        directory = os.path.expanduser("~").replace('\\', '/')
+        directory = os.path.expanduser("~").replace(
+            '\\', '/') + '/.FTA'
         if not os.path.exists(directory):
             os.makedirs(directory)
     except OSError as e:
         print(f"Ошибка доступа к домашней папке: {e}")
+        print(f"Будет использоваться {abs_path('.')}")
         directory = '.'
     return directory
+
+
+def hlink(src, dist):
+    """Создание hardlink связки"""
+    os.link(src, dist)
+
 
 
 def pkgfile(path) -> str:
@@ -91,13 +108,13 @@ def make_pass() -> str:
 
 def is_ip(ip) -> int:
     """ Проверка полных и неполных IP адресов (2-4 колонки)"""
-    col_count = ip.count('.') + 1
-    if col_count > 1 and col_count < 5:
-        pattern = '^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){' + \
-            str(col_count) + '}$'
-        return (col_count if bool(re.search(pattern, ip)) else 0)
-    else:
-        return 0
+    if type(ip) is str:
+        col_count = ip.count('.') + 1
+        if col_count > 1 and col_count < 5:
+            pattern = '^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){' + \
+                str(col_count) + '}$'
+            return (col_count if bool(re.search(pattern, ip)) else 0)
+    return 0
 
 
 def get_ip() -> str:

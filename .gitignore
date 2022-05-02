@@ -9,7 +9,6 @@ test_files
 __pycache__/
 *.py[cod]
 *$py.class
-FTA/watcher.py
 
 # C extensions
 *.so

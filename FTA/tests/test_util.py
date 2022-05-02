@@ -1,10 +1,11 @@
-import pytest
 import os
 import sys
-from FTA import client, server, init, util
 from threading import Thread
+
+import pytest
+from FTA import client, init, server, util
 from FTA.__main__ import DEFAULT_ARG
-from FTA.tests.test_FTA import udata, files
+from FTA.tests.test_FTA import files, udata
 
 
 def test_variable_size():

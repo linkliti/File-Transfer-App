@@ -1,17 +1,16 @@
-from PyQt5 import uic, QtGui
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import Qt
-
-import sys
 import os
-
-from threading import Thread
 import socket
-
-from FTA.server import server, send
-from FTA.client import listen, scan
-from FTA.util import get_ip, make_pass, pkgfile, homedir
+import sys
+from threading import Thread
 from time import sleep
+
+from PyQt5 import QtGui, uic
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import *
+
+from FTA.client import listen, scan
+from FTA.server import send, server
+from FTA.util import get_ip, homedir, make_pass, pkgfile
 
 
 class UserData():
@@ -19,20 +18,20 @@ class UserData():
         """
         Метод инициализации
 
-        ip          - IP адрес текущего ПК
-        port        - Используемый порт
-        hostname    - Имя текущего ПК
+        ip              - IP адрес текущего ПК
+        port            - Используемый порт
+        hostname        - Имя текущего ПК
 
         Сервер:
-        is_random   - Флаг незаданных данных пользователя
-        user        - Пользователь ('fta_server')
-        pwd         - Пароль FTP сервера
-        files       - Путь файлов
-        write       - Разрешение на запись
+        is_random       - Флаг незаданных данных пользователя
+        user            - Пользователь ('fta_server')
+        pwd             - Пароль FTP сервера
+        file_targets    - Целевые папки, файлы
+        write           - Разрешение на изменение файлов
 
         Клиент:
-        target_ip   - Целевые IP адреса
-        path_save   - Путь сохранения файлов
+        target_ip       - Целевые IP адреса
+        save_path       - Путь сохранения файлов
         """
         self.ip = get_ip()
         self.port = int(args['--port'])
@@ -42,12 +41,12 @@ class UserData():
         self.is_random = False if args['--pwd'] else True
         self.user = 'fta_server'
         self.pwd = args['--pwd'] or make_pass()
-        self.files = args['<files>'] if args['<files>'] else ['.']
-        self.write = args['--write']
+        self.file_targets = args['<files>'] if args['<files>'] else ['.']
+        self.write = bool(args['--write'])
 
         # Клиент
         self.target_ip = args['<target_ip>']
-        self.path_save = args['<path_save>']
+        self.save_path = args['<save_path>'] if args['<save_path>'] else ['.']
 
 
 def text_mode(args) -> None:
@@ -63,8 +62,6 @@ def text_mode(args) -> None:
             func = send
         elif args['server']:
             func = server
-        # Папка конфигурации
-        homedir()
         # Запуск основного процесса
         thread = Thread(target=func, args=(session,))
         thread.daemon = True
