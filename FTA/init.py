@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import *
 
 from FTA.client import listen, scan
 from FTA.server import send, server
-from FTA.util import get_ip, homedir, make_pass, pkgfile
+from FTA.util import get_ip, homedir, pkgfile
 
 
 class UserData():
@@ -23,7 +23,7 @@ class UserData():
         hostname        - Имя текущего ПК
 
         Сервер:
-        is_random       - Флаг незаданных данных пользователя
+        is_random       - Флаг незаданного пароля
         user            - Пользователь ('fta_server')
         pwd             - Пароль FTP сервера
         file_targets    - Целевые папки, файлы
@@ -38,15 +38,16 @@ class UserData():
         self.hostname = socket.gethostname()
 
         # Сервер
-        self.is_random = False if args['--pwd'] else True
+        self.is_random = False
         self.user = 'fta_server'
-        self.pwd = args['--pwd'] or make_pass()
+        self.pwd = args['--pwd'] or None
         self.file_targets = args['<files>'] if args['<files>'] else ['.']
         self.write = bool(args['--write'])
 
         # Клиент
         self.target_ip = args['<target_ip>']
-        self.save_path = args['<save_path>'] if args['<save_path>'] else ['.']
+        self.save_path = args['<save_path>'] if args['<save_path>'] \
+        else './.fta_received'
 
 
 def text_mode(args) -> None:

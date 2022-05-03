@@ -1,6 +1,7 @@
-import setuptools
-from os import path
 import re
+from os import path
+
+import setuptools
 
 
 def read(fname):
@@ -10,7 +11,7 @@ def read(fname):
 
 metadata = dict(
     re.findall(
-        r'\__([a-z]+)__ = "([^"]+)', read("FTA/__init__.py")
+        r"""__([a-z]+)__ = '([^']+)""", read("FTA/__init__.py")
     )
 )
 

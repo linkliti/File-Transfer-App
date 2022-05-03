@@ -10,6 +10,7 @@ from FTA.__main__ import DEFAULT_ARG
 @pytest.fixture
 def files():
     util.clear_folder('./test_files')
+    util.clear_folder('./.fta_received')
     os.makedirs('./test_files/subfolder/moredata', exist_ok=True)
     os.makedirs('./test_files/subfolder2', exist_ok=True)
     for symb in ('1', '2', '3'):
@@ -34,15 +35,6 @@ def udata():
     args['<files>'] = ['.']
     session = init.UserData(args)
     return session
-
-
-def test_no_user_pass_fields():
-    # Тест автогенерации пароля
-    args = DEFAULT_ARG
-    assert init.UserData(args).is_random == True
-    args['--pwd'] = 'pass'
-    assert init.UserData(args).is_random == False
-
 
 def test_self_deny_response(monkeypatch, udata, files):
     # Самоотправка запроса (отказ)
@@ -79,7 +71,8 @@ def test_self_deny_response(monkeypatch, udata, files):
 def test_self_accept_response(monkeypatch, udata, files):
     # Самоотправка запроса (согласие)
     import concurrent.futures
-    action = ['y', 'f']
+    action = ['f', 'y', '150', '70', '901']
+    action.reverse()
 
     def alt_input(x):
         act = action.pop()
@@ -99,7 +92,7 @@ def test_self_accept_response(monkeypatch, udata, files):
     udata.pwd = '90'
     udata.target_ip = [udata.ip]
     udata.file_targets = ['./test_files/1.txt',
-                   './test_files/subfolder']
+                          './test_files/3.txt']
     th1 = Thread(target=cl, args=(udata,), daemon=True)
     th1.start()
     with concurrent.futures.ThreadPoolExecutor() as executor:

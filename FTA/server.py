@@ -12,13 +12,17 @@ from pyftpdlib.servers import FTPServer
 
 from FTA.__init__ import __version__
 from FTA.util import (abs_path, clear_folder, copy_handler, drive, hlink,
-                      is_ip, parse_folder)
+                      is_ip, parse_folder, make_pass)
 
 
 def server(s) -> None:
     """Функция запуска сервера"""
     serv = ServerData(s)
     hardlink_gen(serv.server_dir, serv.files_data)
+    # Пароль
+    if not s.pwd:
+        s.pwd = make_pass()
+        s.is_random = True
     if len(serv.files_data) == 0:
         print('Нет файлов для отправки')
         return
@@ -54,7 +58,7 @@ def run_server(ip, port, pwd, server_dir, is_send=False,
     conn_lim = 2 if is_send else 5
     server.max_cons = conn_lim
     server.max_cons_per_ip = conn_lim
-    server.max_login_attempts = conn_lim
+    server.max_login_attempts = 3
     # Лог логина и пароля если случайные
     if is_random:
         print(f"Данные для входа: {user} {pwd}")
@@ -221,6 +225,10 @@ def send(s) -> None:
         print("Получено согласие")
         ClientSock.close()
         # Старт сервер
+        # Пароль
+        if not s.pwd:
+            s.pwd = make_pass()
+            s.is_random = True
         run_server(resp['confirm'], s.port, s.pwd, req.server_dir,
                    True, is_random=True)
         return 0

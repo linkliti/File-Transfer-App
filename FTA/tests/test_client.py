@@ -25,3 +25,8 @@ def test_scan(ip, udata):
     # Проверка сканера
     udata.target_ip = ip
     assert client.scan(udata) == 0
+
+
+def test_default_scan(udata):
+    # Проверка сканера
+    assert client.scan(udata) == 0

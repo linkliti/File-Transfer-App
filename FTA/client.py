@@ -1,9 +1,11 @@
 import json
 import socket
+import ftplib
+import os
 from threading import Lock, Thread
 
 from FTA.__init__ import __version__
-from FTA.util import get_all_ip, is_ip, readable_size
+from FTA.util import get_all_ip, is_ip, readable_size, abs_path
 
 
 class Scan_Threader:
@@ -104,6 +106,7 @@ def listen(s) -> None:
     print(f'Прослушивание "{ip}:{s.port}"...')
     ServerSock.bind((ip, s.port))
     ServerSock.listen(1)
+    confirm = False
     try:
         while True:
             # Подключение
@@ -171,11 +174,54 @@ def listen(s) -> None:
             resp = json.dumps({'confirm': (cl_adr[0] if confirm else False)})
             clientConnected.send(resp.encode())
             ServerSock.close()
-            return
+            # Выход из listen цикла
+            break
     except Exception as e:
         ServerSock.close()
-        print(e)
+        print('Ошибка сокета:', e)
+    # Работа с FTP сервером
+    if confirm:
+        try:
+            # Папка скачиваемых файлов
+            if not os.path.exists(s.save_path):
+                os.makedirs(abs_path(s.save_path))
+            # Подключение
+            ftp = ftplib.FTP()
+            ftp.connect(cl_adr[0], req["port"])
+            # Пароль
+            if not login(req["user"], s.pwd, ftp.login):
+                print("Ошибка FTP: Не удалось подключиться")
+                ftp.close()
+                return
+            # Скачивание
+            print('FTP Files:')
+            print(ftp.nlst())
+            for file in files_list:
+                # Создание подпапки
+                subfolder, filename = os.path.split(s.save_path + '/' + file)
+                if not os.path.exists(subfolder):
+                    os.makedirs(subfolder)
+                # Скачивание
+                with open(subfolder + '/' + filename, 'wb') as my_file:
+                    ftp.retrbinary('RETR ' + file, my_file.write, 1024)
+            print('Скачивание завершено')
+            ftp.close()
+        except ftplib.all_errors as e:
+            print('Ошибка FTP:', type(e).__name__, e)
 
+def login(user, pwd, login_func, attempt=0):
+    """ Функция логина на сервера """
+    if attempt == 3:
+        return 0
+    if not pwd:
+        new_pass = str(input('Введите пароль: '))
+    else: new_pass = pwd
+    try:
+        login_func(user, new_pass)
+        return 1
+    except ftplib.error_perm as e:
+        print('Неверный пароль')
+        return login(user, None, login_func, attempt+1)
 
 def scan(s) -> bool:
     """Сканирование сети
