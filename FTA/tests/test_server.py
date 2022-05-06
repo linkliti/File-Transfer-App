@@ -13,7 +13,7 @@ def test_server_run(udata, files):
     # Тестовый запуск сервера
     from time import sleep
     udata.file_targets = [
-        './test_files/3.txt'
+        './test_files/1.txt'
     ]
     udata.pwd = '90'
     udata.write = True
@@ -23,7 +23,7 @@ def test_server_run(udata, files):
     thread.daemon = True
     thread.start()
     print("Starting server for 3 seconds")
-    sleep(90)
+    sleep(3)
     print("Done")
 
 

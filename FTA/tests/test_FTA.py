@@ -10,7 +10,7 @@ from FTA.__main__ import DEFAULT_ARG
 @pytest.fixture
 def files():
     util.clear_folder('./test_files')
-    util.clear_folder('./.fta_received')
+    util.clear_folder('./fta_received')
     os.makedirs('./test_files/subfolder/moredata', exist_ok=True)
     os.makedirs('./test_files/subfolder2', exist_ok=True)
     for symb in ('1', '2', '3'):
@@ -36,6 +36,7 @@ def udata():
     session = init.UserData(args)
     return session
 
+
 def test_self_deny_response(monkeypatch, udata, files):
     # Самоотправка запроса (отказ)
     import concurrent.futures
@@ -57,9 +58,9 @@ def test_self_deny_response(monkeypatch, udata, files):
 
     udata.target_ip = [udata.ip]
     udata.file_targets = ['./test_files/b.txt',
-                   './test_files/3.txt',
-                   './test_files/subfolder',
-                   './test_files/subfolder2/3.txt', ]
+                          './test_files/3.txt',
+                          './test_files/subfolder',
+                          './test_files/subfolder2/3.txt', ]
     th1 = Thread(target=cl, args=(udata,), daemon=True)
     th1.start()
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -92,6 +93,7 @@ def test_self_accept_response(monkeypatch, udata, files):
     udata.pwd = '90'
     udata.target_ip = [udata.ip]
     udata.file_targets = ['./test_files/1.txt',
+                          './test_files/subfolder',
                           './test_files/3.txt']
     th1 = Thread(target=cl, args=(udata,), daemon=True)
     th1.start()

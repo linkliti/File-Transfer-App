@@ -45,9 +45,10 @@ class UserData():
         self.write = bool(args['--write'])
 
         # Клиент
+        self.auto_accept = bool(args['--auto-accept'])
         self.target_ip = args['<target_ip>']
         self.save_path = args['<save_path>'] if args['<save_path>'] \
-        else './.fta_received'
+            else './fta_received'
 
 
 def text_mode(args) -> None:

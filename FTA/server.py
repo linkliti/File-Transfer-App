@@ -4,6 +4,7 @@ import os
 import socket
 import sys
 from inspect import ismethod
+from time import sleep
 
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
@@ -11,6 +12,7 @@ from pyftpdlib.log import config_logging
 from pyftpdlib.servers import FTPServer
 
 from FTA.__init__ import __version__
+from FTA.client import scanner
 from FTA.util import (abs_path, clear_folder, copy_handler, drive, hlink,
                       is_ip, parse_folder, make_pass)
 
@@ -27,8 +29,9 @@ def server(s) -> None:
         print('Нет файлов для отправки')
         return
     # Сервер
+    print(f'IP адрес: {s.ip}:{s.port}',)
     run_server(s.ip, s.port, s.pwd, serv.server_dir, False,
-               s.write, s.user, s.is_random)
+               s.write, s.user, s.is_random, s.hostname)
 
 
 class MyFTPHandler(FTPHandler):
@@ -38,7 +41,8 @@ class MyFTPHandler(FTPHandler):
 
 
 def run_server(ip, port, pwd, server_dir, is_send=False,
-        write_perm=False, user='fta_server', is_random=True):
+               write_perm=False, user='fta_server',
+               is_random=True, hostname=''):
     """FTP Сервер"""
     # Отключить лог
     config_logging(level=logging.ERROR)
@@ -51,7 +55,7 @@ def run_server(ip, port, pwd, server_dir, is_send=False,
     handler = MyFTPHandler if is_send else FTPHandler
     handler.authorizer = authorizer
     # Баннер при подключении
-    handler.banner = "FTA Server"
+    handler.banner = "FTA_Send_Server" if is_send else f'FTA_Server {hostname}'
     # FTP Сервер
     server = FTPServer((ip, port), handler)
     # Лимит подключений
@@ -82,6 +86,12 @@ class ServerData():
         self.FTA_version = str(__version__)
         # Парсировка file_targets
         self.files_parse(s.file_targets)
+        # Временная папка
+        self.server_dir = self.server_dir + '/.fta_shared'
+
+    def __del__(self):
+        if self.server_dir.endswith('/.fta_shared'):
+            clear_folder(self.server_dir, safe_flag=True)
 
     def files_parse(self, file_targets):
         """ Обработка файлов и файлов в папках"""
@@ -111,16 +121,13 @@ class ServerData():
             return
 
         # Используемый диск
-        file_disk = drive(file_path)
-
-        # Диск не выбран
-        if self.server_dir == '':
-            self.server_dir = file_disk + '/.fta_shared'
-        # Разные диски
-        elif file_disk != drive(self.server_dir):
+        temp = drive(file_path, self.server_dir)
+        if temp == False:
             print(f'Невозможно добавить {file_path}', end=' - ')
             print(f'Файл находится на другом диске')
             return
+        else:
+            self.server_dir = temp
 
         # Имя и местоположение файла на сервере
         ftp_path = ''
@@ -131,7 +138,8 @@ class ServerData():
             ftp_path = os.path.basename(file_path)
 
         # Проверка совпадений названий
-        while ftp_path in (self.files_data[i][0] for i in range(len(self.files_data))):
+        while ftp_path in (self.files_data[i][0]
+                           for i in range(len(self.files_data))):
             ftp_path = copy_handler(ftp_path)
 
         # Сохранить полный, короткие пути и диск
@@ -195,6 +203,27 @@ class RequestData(ServerData):
 
 def send(s) -> None:
     """ Отправка запроса на передачу файлов """
+    # Выбор IP
+    if len(s.target_ip) == 1 and is_ip(s.target_ip[0]) == 4:
+        target = s.target_ip[0]
+    else:
+        l = scanner(s.target_ip, s.port)
+        if len(l):
+            while True:
+                try:
+                    index = int(input('Введите индекс: '))
+                    if index == 0:
+                        print('Отмена')
+                        return
+                    elif index > 0 and index <= len(l) \
+                        and l[index-1][3] == 'FTA прослушиватель':
+                        target = (l[index-1][1]).split(':')[0]
+                        break
+                except TypeError:
+                    pass
+                print('Неверный индекс')
+        else:
+            return
     # Отправляемая информация
     req = RequestData(s)
     req_json = req.gen_msgs().encode()
@@ -205,16 +234,24 @@ def send(s) -> None:
 
     # Подключение
     ClientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    ClientSock.connect((s.target_ip[0], s.port))
+    ClientSock.connect((target, s.port))
+    ClientSock.settimeout(3600)
+
+    # Получение статуса клиента
+    msg = ClientSock.recv(50).decode()
+    if not 'FTA_Listen' in msg:
+        print('Клиент не в режиме прослушивания')
+        return 1
 
     # Отправка запроса
     ClientSock.send(req_json)
-    if not ClientSock.recv(40).decode() == 'conf':
-        print('Нет подтверждения')
+    if not ClientSock.recv(50).decode() == 'FTA_conf':
+        print('Нет подтверждения получения информации')
         return 1
 
     # Отправка списка файлов
     ClientSock.send((req.sendable_filelist).encode())
+    print("Ожидание клиента")
 
     # Получение ответа
     data = ClientSock.recv(128)
@@ -224,7 +261,8 @@ def send(s) -> None:
     if is_ip(resp['confirm']) == 4:
         print("Получено согласие")
         ClientSock.close()
-        # Старт сервер
+        sleep(1)
+        # Старт сервера
         # Пароль
         if not s.pwd:
             s.pwd = make_pass()
@@ -235,7 +273,8 @@ def send(s) -> None:
 
     # Отказ
     elif resp['confirm'] == False:
-        print("Получен отказ")
+        print("Отключение: Получен отказ")
+        ClientSock.close()
         return 1
     else:
         print('Соединение потеряно')
@@ -256,7 +295,7 @@ def hardlink_gen(server_dir, files_data):
             # Связь
             hlink(entry[1], server_dir + '/' + entry[0])
         except PermissionError as e:
-            print('Невозможно передать', entry[1], end = ' - ')
+            print('Невозможно передать', entry[1], end=' - ')
             print(e)
             files_data.remove(entry)
 

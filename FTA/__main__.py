@@ -11,9 +11,9 @@ Usage:
     FTA [gui]
     FTA (-h|--help|--version)
     FTA scan    [<target_ip>]...
-    FTA server  [<files>]...                [-p=<port>] [--pwd=<pwd>] [-w]
-    FTA send    <target_ip> [<files>]...    [-p=<port>] [--pwd=<pwd>]
-    FTA listen  [<save_path>] [<target_ip>] [-p=<port>] [--auto-accept]
+    FTA server  [<files>]...                 [-p=<port>] [--pwd=<pwd>] [-w]
+    FTA send    <target_ip>   [<files>]...   [-p=<port>] [--pwd=<pwd>]
+    FTA listen  [<save_path>] [<target_ip>]  [-p=<port>] [--pwd=<pwd>] [--auto-accept]
 
 Options:
     --version               Показать версию
@@ -21,7 +21,6 @@ Options:
     -p --port=<port>        Порт [default: 2121]
     -w --write              Разрешение на изменение файлов
     --pwd=<pwd>             Пароль (FTP сервер)
-    -i --ip=<ip>            IP адреса
     -a --auto-accept        Подтверждать прием файлов
 """
 from docopt import docopt
@@ -40,7 +39,7 @@ DEFAULT_ARG = {'--auto-accept': False,
                '<target_ip>': [],
                'gui': True,
                'listen': False,
-               'scan': True,
+               'scan': False,
                'send': False,
                'server': False}
 
@@ -55,5 +54,5 @@ if __name__ == '__main__':
     if args['gui']:
         window_mode()
     else:
-        # print(args)
+        #print(args)
         text_mode(args)

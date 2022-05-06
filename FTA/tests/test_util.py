@@ -8,11 +8,25 @@ from FTA.__main__ import DEFAULT_ARG
 from FTA.tests.test_FTA import files, udata
 
 
+@pytest.mark.parametrize('file,drive', [
+    ('/mnt/d/tutorial', '/mnt/d'),
+    ('d:/tutorial/tut', 'd:'),
+    ('/home/mnt/tutorial', os.path.expanduser("~")),
+    ('c:/files/c', 'c:'),
+    ('C:/files/c', 'c:'),
+    ('d:/d/d', 'd:'),
+    ('/media/alex/disk/file', '/media/alex/disk'),
+])
+def test_drive(file, drive):
+    assert util.drive(file, '') == drive
+
+
 def test_variable_size():
     # Размер переменной (дебаг)
-    var = '{confirm: True}'
+    var = 'FTA_Send_Server'
     print(sys.getsizeof(var))
     print(sys.getsizeof(var.encode()))
+
 
 @pytest.mark.parametrize('ip,res', [
     ('127.0.0.1',       4),

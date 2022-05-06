@@ -3,9 +3,10 @@ import socket
 import ftplib
 import os
 from threading import Lock, Thread
+from tabulate import tabulate
 
 from FTA.__init__ import __version__
-from FTA.util import get_all_ip, is_ip, readable_size, abs_path
+from FTA.util import get_all_ip, is_ip, readable_size, abs_path, get_console_width
 
 
 class Scan_Threader:
@@ -62,12 +63,33 @@ class Scan_Threader:
 
 def connect(hostname, port) -> None:
     """Подключение к hostname:port"""
+    msg = ''
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         result = sock.connect_ex((hostname, port))
-        with threader.print_lock:
-            if result == 0:
-                print(f"Найден {hostname}:{port}\n")
-                found_list.append(f'{hostname}:{port}')
+        try:
+            msg = sock.recv(50).decode()
+        except:
+            if not msg:
+                return
+    try:
+        if 'FTA_Server' in msg:
+            user = (msg.split(' ')[2]).rstrip()
+            resp = 'FTA сервер'
+        elif 'FTA_Send_Server' in msg:
+            user = 'Неизвестно'
+            resp = 'FTA отправитель'
+        elif 'FTA_Listen' in msg:
+            user = msg.split(' ')[1]
+            resp = 'FTA прослушиватель'
+        else:
+            user = 'Неизвестно'
+            resp = 'Неизвестно'
+    except IndexError:
+        user = 'Неизвестно'
+        resp = 'Неизвестно'
+    if msg:
+        print(f"Найден {hostname}:{port}, {user} [{resp}]")
+        found_list.append([f'{hostname}:{port}', user, resp])
 
 
 def gen_ips(ip, port) -> None:
@@ -95,135 +117,12 @@ def gen_ips(ip, port) -> None:
         print(f'Неверный IP: {ip}')
 
 
-def listen(s) -> None:
-    """ Ожидание отправителя"""
-    # Прослушивание
-    ServerSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        ip = s.target_ip[0]
-    except IndexError:
-        ip = s.ip
-    print(f'Прослушивание "{ip}:{s.port}"...')
-    ServerSock.bind((ip, s.port))
-    ServerSock.listen(1)
-    confirm = False
-    try:
-        while True:
-            # Подключение
-            clientConnected, cl_adr = ServerSock.accept()
-            print(f'Входящее подключение {cl_adr[0]}:{cl_adr[1]}')
-            files_list = {}  # Список файлов {путь: размер}
-            try:
-                # Получение осноной информации
-                data = clientConnected.recv(512)
-                req = json.loads(data.decode())
-                # Подтверждение
-                clientConnected.send('conf'.encode())
+def scan(s) -> None:
+    """ Стартер scanner """
+    scanner(s.target_ip, s.port)
 
-                # Получение списка файлов
-                temp_list = {}
-                data = clientConnected.recv(req['files_list_size'])
-                temp_list = json.loads(data.decode())
-                files_list = {**files_list, **temp_list}
 
-            # Неудачная обработка JSON
-            except json.JSONDecodeError as e:
-                print(f'Отключение от {cl_adr[0]}:{cl_adr[1]}', end=' - ')
-                print('Был передан поврежденный JSON')
-                print('Информация:', type(e).__name__, '-', e)
-                clientConnected.close()
-                break
-
-            # Подсчет кол-ва файлов и их размер
-            if not (sum(files_list.values()) == req['files_size'] and
-                    len(files_list) == req['files_count']):
-                print(f'Отключение от {cl_adr[0]}:{cl_adr[1]}', end=' - ')
-                print('Список файлов не совпадает с ожидаемой передачей')
-                print('Информация:', type(e).__name__, '-', e)
-                clientConnected.close()
-                break
-
-            # Обработка запроса
-            # Разные версии
-            if not req['FTA_version'] == __version__:
-                print(f"Разная версия программ (текущая: ", end=' ')
-                print(f"{__version__} полученная: {req['FTA_version']}")
-
-            # Информирование
-            print(f"Запрос на передачу от {req['hostname']}")
-            print(f"Всего файлов: {req['files_count']}", end=' ')
-            print(f"Размер: {readable_size(req['files_size'])}")
-            while True:
-                q = input(f"Согласиться? (Да|Нет|Файлы): ")
-                # Согласие
-                if q[0] in ('y', 'Y', '1', 'Д', 'д'):
-                    confirm = True
-                    break
-                # Список файлов
-                elif q[0] in ('L', 'l', 'Л', 'л', 'Ф',
-                              'ф', 'F', 'f', 'С', 'с'):
-                    for dict_entry in files_list:
-                        print(dict_entry)
-                        # print(f'Файл: {file[0]}, \
-                        # Размер: {readable_size(file[1])}')
-                # Отказ
-                else:
-                    confirm = False
-                    break
-            # Отправка ответа
-            resp = json.dumps({'confirm': (cl_adr[0] if confirm else False)})
-            clientConnected.send(resp.encode())
-            ServerSock.close()
-            # Выход из listen цикла
-            break
-    except Exception as e:
-        ServerSock.close()
-        print('Ошибка сокета:', e)
-    # Работа с FTP сервером
-    if confirm:
-        try:
-            # Папка скачиваемых файлов
-            if not os.path.exists(s.save_path):
-                os.makedirs(abs_path(s.save_path))
-            # Подключение
-            ftp = ftplib.FTP()
-            ftp.connect(cl_adr[0], req["port"])
-            # Пароль
-            if not login(req["user"], s.pwd, ftp.login):
-                print("Ошибка FTP: Не удалось подключиться")
-                ftp.close()
-                return
-            # Скачивание
-            print('FTP Files:')
-            print(ftp.nlst())
-            for file in files_list:
-                # Создание подпапки
-                subfolder, filename = os.path.split(s.save_path + '/' + file)
-                if not os.path.exists(subfolder):
-                    os.makedirs(subfolder)
-                # Скачивание
-                with open(subfolder + '/' + filename, 'wb') as my_file:
-                    ftp.retrbinary('RETR ' + file, my_file.write, 1024)
-            print('Скачивание завершено')
-            ftp.close()
-        except ftplib.all_errors as e:
-            print('Ошибка FTP:', type(e).__name__, e)
-
-def login(user, pwd, login_func, attempt=0):
-    """ Функция логина на сервера """
-    if attempt == 3:
-        return 0
-    if not pwd:
-        new_pass = str(input('Введите пароль: '))
-    else: new_pass = pwd
-    try:
-        login_func(user, new_pass)
-        return 1
-    except ftplib.error_perm as e:
-        print('Неверный пароль')
-        return login(user, None, login_func, attempt+1)
-
-def scan(s) -> bool:
+def scanner(target_ip, port) -> list or None:
     """Сканирование сети
     Примеры ip адресов:
     None        -> Локальный без 4 колонки
@@ -231,36 +130,250 @@ def scan(s) -> bool:
     192.168.1   -> 192.168.1.X
     192.168     -> 192.168.X.X
     """
-    # Обработка IP адресов из s.target_ip
-
     # пустой s.target_ip:
-    if not s.target_ip:
+    if not target_ip or target_ip == ['auto']:
         # Получение IP адресов
-        s.target_ip = get_all_ip()
-        for i in range(len(s.target_ip)):
+        target_ip = get_all_ip()
+        for i in range(len(target_ip)):
             # Убрать 4 колонку
-            s.target_ip[i] = '.'.join((s.target_ip[i]).split('.')[:-1])
-    else:
-        # Разбить строку с адресами в список
-        s.target_ip = (s.target_ip).split(',')
+            target_ip[i] = '.'.join((target_ip[i]).split('.')[:-1])
 
     # Обработка списка ip адресов
     global found_list
     found_list = []
-    for ip in s.target_ip:
+    for ip in target_ip:
         # Убрать лишние символы
         t_ip = ip.strip().strip('.')
         print(f"Сканирование '{t_ip}'...")
         # Сканирование
-        gen_ips(t_ip, s.port)
-    print('\nСканирование завершено')
+        gen_ips(t_ip, port)
+    print('Сканирование завершено')
+    # Нумерация
+    i = 1
+    for entry in found_list:
+        entry.insert(0, i)
+        i += 1
     if found_list:
         print("Найденные адреса:")
-        for adr in found_list:
-            print(f'> {adr}')
+        print(tabulate(found_list, headers=[
+              '#', 'Адрес', 'Имя', 'Тип сервера'], tablefmt="presto"))
+        print()
     else:
         print("Ничего не найдено")
-    return 0
+    return found_list
+
+
+def listen(s) -> None:
+    """ Ожидание отправителя"""
+    # Прослушивание
+    try:
+        ip = s.target_ip[0]
+    except IndexError:
+        ip = s.ip
+    print(f'Прослушивание "{ip}:{s.port}"...')
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as ServerSock:
+            ServerSock.bind((ip, s.port))
+            ServerSock.listen(1)
+            connection = Metadata(ServerSock, s)
+            connection.get_metadata()
+        if connection.status == 'confirm':
+            connection.download_manager()
+        elif connection.status == 'ok':
+            listen(s)
+            return
+        else:
+            return
+    except Exception as e:
+        print('Ошибка прослушивания:', type(e).__name__, '-', e)
+
+class Metadata():
+    def __init__(self, ServerSock, s):
+        self.status = 'ok'
+        self.sock = ServerSock
+        self.hostname = s.hostname
+        self.ip = ''
+        self.user = ''
+        self.pwd = s.pwd
+        self.auto_accept = s.auto_accept
+        self.save_path = s.save_path
+        self.port = 0
+        self.files_list = {}
+
+    def get_metadata(self) -> int:
+        try:
+            # Продолжать работу после сканеров
+            while True:
+                # Подключение
+                clientConnected, cl_adr = self.sock.accept()
+                clientConnected.settimeout(3600)
+                # Отправка статуса
+                clientConnected.send(f'FTA_Listen {self.hostname}'.encode())
+                # Сообщение
+                print(f'Входящее подключение {cl_adr[0]}:{cl_adr[1]}', end='')
+                # Получение основной информации
+                data = clientConnected.recv(512)
+                try:
+                    req = json.loads(data.decode())
+                    print()
+                    break
+                except json.JSONDecodeError:
+                    print(f' - Сканер')
+            # Отправка подтверждения приема информации
+            clientConnected.send('FTA_conf'.encode())
+            try:
+                # Сохранение IP и пользователя
+                self.ip = cl_adr[0]
+                self.user = req['user']
+                self.port = req['port']
+                # Получение списка файлов
+                temp_list = {}
+                data = clientConnected.recv(req['files_list_size'])
+                temp_list = json.loads(data.decode())
+                self.files_list = {**self.files_list, **temp_list}
+
+                # Подсчет кол-ва файлов и их размер
+                if not (sum(self.files_list.values()) == req['files_size'] and
+                        len(self.files_list) == req['files_count']):
+                    print(f'Отключение от {cl_adr[0]}:{cl_adr[1]}', end=' - ')
+                    print('Список файлов не совпадает с ожидаемой передачей')
+                    print('Информация:', type(e).__name__, '-', e)
+                    clientConnected.close()
+                    return -1
+
+                # Обработка запроса
+                # Разные версии
+                if not req['FTA_version'] == __version__:
+                    print(f"Разная версия программ (текущая: ", end=' ')
+                    print(f"{__version__} полученная: {req['FTA_version']}")
+
+            # Неудачная обработка JSON
+            except json.JSONDecodeError as e:
+                print(f'Отключение от {cl_adr[0]}:{cl_adr[1]}', end=' - ')
+                print('Был передан поврежденный JSON')
+                print('Информация:', type(e).__name__, '-', e)
+                clientConnected.close()
+                return -1
+
+            # Информирование
+            print(f"Запрос на передачу от {req['hostname']}")
+            print(f"Всего файлов: {req['files_count']}", end=' ')
+            print(f"Размер: {readable_size(req['files_size'])}")
+            printable_list = tabulate([
+                (k, ' '.join(str(x) for x in readable_size(v))) for k, v
+                in self.files_list.items()],
+                headers=['Файл', 'Размер'])
+            while True:
+                if self.auto_accept:
+                    confirm = True
+                    self.status = 'confirm'
+                    break
+                q = input(f"Согласиться? (Да|Нет|Файлы): ")
+                # Согласие
+                if q[0] in ('y', 'Y', '1', 'Д', 'д'):
+                    confirm = True
+                    self.status = 'confirm'
+                    break
+                # Список файлов
+                elif q[0] in ('L', 'l', 'Л', 'л', 'Ф',
+                              'ф', 'F', 'f', 'С', 'с'):
+                    print(printable_list)
+                    print()
+                # Отказ
+                else:
+                    confirm = False
+                    break
+            # Отправка ответа
+            resp = json.dumps(
+                {'confirm': (cl_adr[0] if confirm else False)})
+            clientConnected.send(resp.encode())
+            return 0
+        except Exception as e:
+            self.status = 'error'
+            print('Ошибка сокета:', type(e).__name__, e)
+            return -1
+
+    def download_manager(self):
+        """ Работа с FTP сервером """
+        try:
+            # Папка скачиваемых файлов
+            if not os.path.exists(self.save_path):
+                os.makedirs(abs_path(self.save_path))
+            # Подключение
+            ftp = ftplib.FTP()
+            print(f'Подключение к: {self.ip}:{self.port}')
+            ftp.connect(self.ip, self.port)
+            # Пароль
+            if not login(self.user, self.pwd, ftp.login):
+                print("Ошибка FTP: Не удалось подключиться")
+                ftp.close()
+                return
+
+            # Прогресс бар
+            printProgressBar(0, len(self.files_list))
+            i = 0
+            # Скачивание
+            for file in self.files_list:
+                # Создание подпапки
+                subfolder, filename = os.path.split(
+                    self.save_path + '/' + file)
+                if not os.path.exists(subfolder):
+                    os.makedirs(subfolder)
+                # Скачивание
+                with open(subfolder + '/' + filename, 'wb') as my_file:
+                    ftp.retrbinary('RETR ' + file, my_file.write, 1024)
+                # Обновление прогресс бара
+                i += 1
+                printProgressBar(i, len(self.files_list))
+            print('Скачивание завершено')
+            ftp.close()
+        except ftplib.all_errors as e:
+            print('Ошибка FTP:', type(e).__name__, e)
+
+
+def printProgressBar(iteration, total, prefix='Прогресс:', suffix='завершено ',
+                     decimals=1, fill='█',
+                     printEnd="\r\n"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    length, printEnd = get_console_width()  # Длина терминала
+
+    percent = ("{0:." + str(decimals) + "f}").format(100 *
+                                                     (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    if length >= 20:
+        print(f'\r{prefix} |{bar}| {percent}% {suffix}', end=printEnd)
+    else:
+        print(f'\r{percent}% {suffix}', end=printEnd)
+    # Print New Line on Complete
+    if iteration == total:
+        print()
+
+
+def login(user, pwd, login_func, attempt=0):
+    """ Функция логина на сервера """
+    if attempt == 3:
+        return 0
+    if not pwd:
+        new_pass = str(input('Введите пароль: '))
+    else:
+        new_pass = pwd
+    try:
+        login_func(user, new_pass)
+        return 1
+    except ftplib.error_perm as e:
+        print('Неверный пароль')
+        return login(user, None, login_func, attempt+1)
 
 
 if __name__ == '__main__':

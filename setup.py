@@ -38,7 +38,8 @@ setuptools.setup(
     install_requires=[
         'pyqt5',
         'docopt',
-        'pyftpdlib'
+        'pyftpdlib',
+        'tabulate'
     ],
     extras_require={
         'dev': [

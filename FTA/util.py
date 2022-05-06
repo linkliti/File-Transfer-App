@@ -13,9 +13,51 @@ from platform import uname
 
 SIZE_VAL = ('байт', 'КБайт', 'МБайт', 'ГБайт', 'ТБайт', 'ПБайт')
 
-def drive(file_path) -> str:
-    """ Получить диск файла """
-    return ((os.path.splitdrive(abs_path(file_path))[0])) or ''
+
+def get_console_width():
+    """ Получить ширину консоли """
+    try:
+        col = os.get_terminal_size().columns - 40
+        if col > 100:
+            col = 100
+        return (col, '\r')
+    except OSError:
+        return (10, '\r\n')
+
+
+def drive(file_path, server_dir) -> bool:
+    """ Проверка местоположения (диска) файла """
+    drive = ''
+    # Определение диска
+    while True:  # Выход через break
+        # Windows (c:, d:)
+        temp = re.findall('^\w\:', file_path)
+        if temp:
+            drive = temp[0].lower()
+            break
+        # Linux Flash Drive (/media/user_name/drive_name)
+        temp = re.findall('^\/media\/\w+\/\w+', file_path)
+        if temp:
+            drive = temp[0]
+            break
+        # WSL (/mnt/d, /mnt/c)
+        temp = re.findall('^\/mnt\/\w+', file_path)
+        if temp:
+            drive = temp[0]
+            break
+        # Linux Hard Drive [use /home/user_name]
+        if not drive:
+            drive = os.path.expanduser("~")
+            break
+        break
+    # Проверка
+    if server_dir == '':
+        server_dir = drive
+        return server_dir
+    elif server_dir == drive:
+        return server_dir
+    else:
+        return False
 
 
 def readable_size(size) -> tuple:
@@ -57,6 +99,8 @@ def clear_folder(folder_path, safe_flag=False) -> None:
     # Флаг безопасной очистки
     if safe_flag and ('/.fta_shared' not in abs_path(folder_path)):
         return
+    if not os.path.exists(folder_path):
+        return
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
         try:
@@ -91,7 +135,6 @@ def homedir() -> str:
 def hlink(src, dist):
     """Создание hardlink связки"""
     os.link(src, dist)
-
 
 
 def pkgfile(path) -> str:
