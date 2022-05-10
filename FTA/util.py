@@ -1,17 +1,30 @@
 from __future__ import absolute_import
-import socket
-from pkg_resources import resource_filename
-from glob import glob
-import re
+
 import os
-import sys
-import shutil
+import re
 import secrets
+import shutil
+import socket
 import string
-import netifaces
+import subprocess
+import sys
 from platform import uname
 
+import netifaces
+import psutil
+from pkg_resources import resource_filename
+
 SIZE_VAL = ('байт', 'КБайт', 'МБайт', 'ГБайт', 'ТБайт', 'ПБайт')
+
+
+def is_fat32_or_ronly(path):
+    """ Проверка диска на FAT32 и режим 'только для чтения' """
+    for entry in psutil.disk_partitions():
+        if os.path.abspath(path) == entry[1]:
+            if entry[2] == 'FAT32' or \
+                    ('r' in entry[3] and not 'rw' in entry[3]):
+                return True
+    return False
 
 
 def get_console_width():
@@ -66,7 +79,7 @@ def readable_size(size) -> tuple:
     while size // 1024 > 0 and size_t < 6:
         size /= 1024
         size_t += 1
-    return (size, SIZE_VAL[size_t])
+    return (round(size, 2), SIZE_VAL[size_t])
 
 
 def copy_handler(filename) -> str:
@@ -108,14 +121,27 @@ def clear_folder(folder_path, safe_flag=False) -> None:
                 os.unlink(file_path)
             elif os.path.isdir(file_path):
                 shutil.rmtree(file_path)
+            if os.path.exists(folder_path):
+                shutil.rmtree(folder_path)
         except Exception as e:
             print(f'Не удалось удалить {file_path} : {e}')
 
 
-def parse_folder(folder_path) -> list:
+def parse_folder(dir) -> list:
     """Получить рекурсивно все файлы из папки"""
-    return [abs_path(y) for x in os.walk(folder_path)
-            for y in glob(os.path.join(x[0], '*.*'))]
+    subfolders, files = [], []
+
+    for f in os.scandir(dir):
+        if f.is_dir():
+            subfolders.append(f.path)
+        if f.is_file():
+            files.append(abs_path(f.path))
+
+    for dir in list(subfolders):
+        sf, f = parse_folder(dir)
+        subfolders.extend(sf)
+        files.extend(f)
+    return subfolders, files
 
 
 def homedir() -> str:

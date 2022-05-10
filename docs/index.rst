@@ -1,23 +1,14 @@
-.. File Transfer App documentation master file, created by
-   sphinx-quickstart on Tue Apr 19 16:32:48 2022.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-Welcome to File Transfer App's documentation!
+File Transfer App
 =============================================
+Автоматически сгенерированная документация FTA
 
-Work in progress!!!
+Ссылка на GitHub_
+
+.. _GitHub: https://github.com/linkliti/File-Transfer-App
+* :ref:`genindex`
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 3
+   :caption: Структура пакета:
 
    modules
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-

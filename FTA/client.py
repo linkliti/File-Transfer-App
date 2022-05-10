@@ -6,7 +6,7 @@ from threading import Lock, Thread
 from tabulate import tabulate
 
 from FTA.__init__ import __version__
-from FTA.util import get_all_ip, is_ip, readable_size, abs_path, get_console_width
+from FTA.util import copy_handler, get_all_ip, is_ip, readable_size, abs_path, get_console_width
 
 
 class Scan_Threader:
@@ -124,11 +124,12 @@ def scan(s) -> None:
 
 def scanner(target_ip, port) -> list or None:
     """Сканирование сети
-    Примеры ip адресов:
-    None        -> Локальный без 4 колонки
-    192.168.1.9 -> 192.168.1.9
-    192.168.1   -> 192.168.1.X
-    192.168     -> 192.168.X.X
+
+    Примеры ip адресов: \n
+    None/auto   -> Локальные без 4 колонки \n
+    192.168.1.9 -> 192.168.1.9 \n
+    192.168.1   -> 192.168.1.X \n
+    192.168     -> 192.168.X.X \n
     """
     # пустой s.target_ip:
     if not target_ip or target_ip == ['auto']:
@@ -187,7 +188,22 @@ def listen(s) -> None:
     except Exception as e:
         print('Ошибка прослушивания:', type(e).__name__, '-', e)
 
+
 class Metadata():
+    """
+    Класс обработки запроса на передачу файлов \n
+    \n | status         - Состояние обработки запроса
+    \n | sock           - Сокет прослушки
+    \n | hostname       - Имя пользователя
+    \n | ip             - Используемый IP
+    \n | user           - Пользователь FTP сервера
+    \n | pwd            - Пароль FTP сервера
+    \n | auto_accept    - Автоматическая отправка согласия
+    \n | save_path      - Путь сохранения файлов
+    \n | port           - Используемый порт
+    \n | files_list     - Полученный список файлов
+    """
+
     def __init__(self, ServerSock, s):
         self.status = 'ok'
         self.sock = ServerSock
@@ -201,6 +217,10 @@ class Metadata():
         self.files_list = {}
 
     def get_metadata(self) -> int:
+        """
+        Получение информации по отправляемым файлам и
+        отправка ответа
+        """
         try:
             # Продолжать работу после сканеров
             while True:
@@ -257,8 +277,9 @@ class Metadata():
 
             # Информирование
             print(f"Запрос на передачу от {req['hostname']}")
-            print(f"Всего файлов: {req['files_count']}", end=' ')
-            print(f"Размер: {readable_size(req['files_size'])}")
+            print(f"Всего файлов: {req['files_count']}", end='; ')
+            print(f"Размер:", ' '.join(str(x) for x in
+                                       readable_size(req['files_size'])))
             printable_list = tabulate([
                 (k, ' '.join(str(x) for x in readable_size(v))) for k, v
                 in self.files_list.items()],
@@ -268,7 +289,11 @@ class Metadata():
                     confirm = True
                     self.status = 'confirm'
                     break
-                q = input(f"Согласиться? (Да|Нет|Файлы): ")
+                try:
+                    q = input(f"Согласиться? (Да|Нет|Файлы): ")
+                except:
+                    confirm = False
+                    break
                 # Согласие
                 if q[0] in ('y', 'Y', '1', 'Д', 'д'):
                     confirm = True
@@ -290,7 +315,7 @@ class Metadata():
             return 0
         except Exception as e:
             self.status = 'error'
-            print('Ошибка сокета:', type(e).__name__, e)
+            print('Ошибка сокета:', type(e).__name__, '-', e)
             return -1
 
     def download_manager(self):
@@ -300,7 +325,7 @@ class Metadata():
             if not os.path.exists(self.save_path):
                 os.makedirs(abs_path(self.save_path))
             # Подключение
-            ftp = ftplib.FTP()
+            ftp = ftplib.FTP_TLS()
             print(f'Подключение к: {self.ip}:{self.port}')
             ftp.connect(self.ip, self.port)
             # Пароль
@@ -313,12 +338,16 @@ class Metadata():
             printProgressBar(0, len(self.files_list))
             i = 0
             # Скачивание
+            ftp.prot_p()
             for file in self.files_list:
                 # Создание подпапки
                 subfolder, filename = os.path.split(
                     self.save_path + '/' + file)
                 if not os.path.exists(subfolder):
                     os.makedirs(subfolder)
+                # Существующий дубликат -> переименовать скачиваемый файл
+                while os.path.exists(subfolder + '/' + filename):
+                    filename = copy_handler(filename)
                 # Скачивание
                 with open(subfolder + '/' + filename, 'wb') as my_file:
                     ftp.retrbinary('RETR ' + file, my_file.write, 1024)
@@ -328,22 +357,14 @@ class Metadata():
             print('Скачивание завершено')
             ftp.close()
         except ftplib.all_errors as e:
-            print('Ошибка FTP:', type(e).__name__, e)
+            print('Ошибка FTP:', type(e).__name__, '-', e)
 
 
 def printProgressBar(iteration, total, prefix='Прогресс:', suffix='завершено ',
                      decimals=1, fill='█',
                      printEnd="\r\n"):
     """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        fill        - Optional  : bar fill character (Str)
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    Прогресс бар для списка скачиваемых файлов
     """
     length, printEnd = get_console_width()  # Длина терминала
 

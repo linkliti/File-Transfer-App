@@ -28,6 +28,14 @@ FTA.server module
    :undoc-members:
    :show-inheritance:
 
+FTA.util module
+---------------
+
+.. automodule:: FTA.util
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

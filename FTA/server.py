@@ -7,57 +7,72 @@ from inspect import ismethod
 from time import sleep
 
 from pyftpdlib.authorizers import DummyAuthorizer
-from pyftpdlib.handlers import FTPHandler
+from pyftpdlib.handlers import TLS_FTPHandler
 from pyftpdlib.log import config_logging
 from pyftpdlib.servers import FTPServer
 
 from FTA.__init__ import __version__
 from FTA.client import scanner
 from FTA.util import (abs_path, clear_folder, copy_handler, drive, hlink,
-                      is_ip, parse_folder, make_pass)
+                      is_ip, parse_folder, make_pass, is_fat32_or_ronly, pkgfile)
 
 
 def server(s) -> None:
     """Функция запуска сервера"""
     serv = ServerData(s)
-    hardlink_gen(serv.server_dir, serv.files_data)
+    if len(serv.files_data) == 0:
+        print('Нет файлов для отправки')
+        return
+    # Создание ссылок и выход при неудаче
+    if serv.hardlink() == -1:
+        return
     # Пароль
     if not s.pwd:
         s.pwd = make_pass()
         s.is_random = True
-    if len(serv.files_data) == 0:
-        print('Нет файлов для отправки')
-        return
     # Сервер
-    print(f'IP адрес: {s.ip}:{s.port}',)
-    run_server(s.ip, s.port, s.pwd, serv.server_dir, False,
-               s.write, s.user, s.is_random, s.hostname)
+    print(f'IP адрес: {s.ip}:{s.port}')
+    run_server(ip=s.ip, port=s.port, pwd=s.pwd, server_dir=serv.server_dir,
+               is_send=False, write_perm=s.write, user=s.user,
+               is_random=s.is_random, hostname=s.hostname, use_cert=s.use_cert)
 
 
-class MyFTPHandler(FTPHandler):
-    # Выход по завершению соединения
+class MyTLS_FTPHandler(TLS_FTPHandler):
+    """ Обработчик: Выход по завершению соединения """
+
     def on_disconnect(self):
         self.server.close_all()
 
 
 def run_server(ip, port, pwd, server_dir, is_send=False,
                write_perm=False, user='fta_server',
-               is_random=True, hostname=''):
-    """FTP Сервер"""
-    # Отключить лог
-    config_logging(level=logging.ERROR)
+               is_random=True, hostname='', use_cert=True):
+    """Старт FTP Сервера"""
+    # Отключить лог для передачи файлов
+    if is_send:
+        config_logging(level=logging.ERROR)
     # Авторизация
     authorizer = DummyAuthorizer()
     # Пользователь
     rule = 'elrawMT' if write_perm else 'elr'  # Разрешение на изменение файлов
     authorizer.add_user(user, pwd, server_dir, rule)
     # Обработчик
-    handler = MyFTPHandler if is_send else FTPHandler
+    handler = MyTLS_FTPHandler if is_send else TLS_FTPHandler
+    handler.certfile = pkgfile('cert/keycert.pem')
+    if use_cert:
+        handler.tls_control_required = True
+        handler.tls_data_required = True
+    else:
+        print("Внимание: Возможно незашифрованное подключение")
     handler.authorizer = authorizer
     # Баннер при подключении
     handler.banner = "FTA_Send_Server" if is_send else f'FTA_Server {hostname}'
     # FTP Сервер
-    server = FTPServer((ip, port), handler)
+    try:
+        server = FTPServer((ip, port), handler)
+    except OSError as e:
+        print("Недопустимый IP:", type(e).__name__, '-', e)
+        return
     # Лимит подключений
     conn_lim = 2 if is_send else 5
     server.max_cons = conn_lim
@@ -73,21 +88,33 @@ def run_server(ip, port, pwd, server_dir, is_send=False,
 
 
 class ServerData():
-    """ Класс информации о сервере"""
+    """ Класс информации о сервере \n
+    \n |is_legacy       - Флаг режима совместимости
+    \n |server_dir      - Папка FTP сервера
+    \n |files_data      - Пути файлов [имя на сервере, абсолютный путь]
+    \n |FTA_version     - Версия программы
+    """
 
     def __init__(self, s):
-        """
-        Метод инициализации
-        server_dir      - Папка FTP сервера
-        files_data      - Пути файлов [имя на сервере, абс путь]
-        """
+        self.is_legacy = s.is_legacy
         self.server_dir = ''
         self.files_data = []
         self.FTA_version = str(__version__)
-        # Парсировка file_targets
-        self.files_parse(s.file_targets)
-        # Временная папка
-        self.server_dir = self.server_dir + '/.fta_shared'
+        # Если не папка и режим совместимости
+        if self.is_legacy and not os.path.isdir(s.file_targets):
+            print("В режиме совместимости возможно передавать только папку")
+            return
+        # Режим совместимости
+        if self.is_legacy:
+            self.server_dir = s.file_targets
+            self.files_parse([s.file_targets])
+        # Обычный режим
+        else:
+            # Парсировка file_targets
+            self.files_parse(s.file_targets)
+            # Временная папка
+            self.server_dir = self.server_dir + '/.fta_shared'
+            s.server_dir = self.server_dir
 
     def __del__(self):
         if self.server_dir.endswith('/.fta_shared'):
@@ -102,7 +129,7 @@ class ServerData():
                 # Если папка
                 if os.path.isdir(entry):
                     # Обработка всех файлов полученных от parse_folder
-                    for entry_file in parse_folder(entry):
+                    for entry_file in parse_folder(entry)[1]:
                         self.inspect_file(entry_file, entry)
 
                 # Иначе если файл
@@ -110,7 +137,7 @@ class ServerData():
                     self.inspect_file(abs_path(entry))
 
         except OSError as e:
-            print(f"Ошибка", type(e).__name__, '-', e)
+            print(f"Ошибка:", type(e).__name__, '-', e)
 
     def inspect_file(self, file_path, folder=None) -> None:
         """ Обработка отправляемого файла """
@@ -121,13 +148,14 @@ class ServerData():
             return
 
         # Используемый диск
-        temp = drive(file_path, self.server_dir)
-        if temp == False:
-            print(f'Невозможно добавить {file_path}', end=' - ')
-            print(f'Файл находится на другом диске')
-            return
-        else:
-            self.server_dir = temp
+        if not self.is_legacy:
+            temp = drive(file_path, self.server_dir)
+            if temp == False:
+                print(f'Невозможно добавить {file_path}', end=' - ')
+                print(f'Файл находится на другом диске')
+                return
+            else:
+                self.server_dir = temp
 
         # Имя и местоположение файла на сервере
         ftp_path = ''
@@ -145,24 +173,33 @@ class ServerData():
         # Сохранить полный, короткие пути и диск
         self.files_data.append((ftp_path, file_path))
 
+    def hardlink(self) -> int:
+        """
+        Проверка диска на FAT32 и режим чтения
+        Пропуск если включен режим совместимости
+        """
+        if not self.is_legacy:
+            if is_fat32_or_ronly(self.server_dir.rstrip('/.fta_shared')):
+                print("Неподдерживаемый диск")
+                return -1
+            hardlink_gen(self.server_dir, self.files_data)
+        return 0
+
 
 class RequestData(ServerData):
-    """ Класс отправляемой информации"""
+    """ Класс отправляемой информации \n
+    \n |hostname            - Имя текущего ПК
+    \n |ip                  - IP текущего ПК
+    \n |port                - Используемый порт для FTP
+    \n |user                - Имя пользователя
+    \n |files_list_size     - Размер списка отправляемых файлов
+    \n |files_size          - Размер отправляемых файлов
+    \n |files_count         - Кол-во отправляемых файлов
+
+    \n Отправляемый отдельно список файлов:
+    \n |sendable_filelist   - Отправляемые файлы [имя, размер файла]"""
 
     def __init__(self, s):
-        """
-        FTA_version         - Версия программы
-        hostname            - Имя текущего ПК
-        ip                  - IP текущего ПК
-        port                - Используемый порт для FTP
-
-        files_list_size     - Размер списка отправляемых файлов
-        files_size          - Размер отправляемых файлов
-        files_count         - Кол-во отправляемых файлов
-
-        Отправляемый отдельно список файлов:
-        sendable_filelist   - Отправляемые файлы [имя, размер файла]
-        """
         ServerData.__init__(self, s)
         self.hostname = s.hostname
         self.ip = s.ip
@@ -216,7 +253,7 @@ def send(s) -> None:
                         print('Отмена')
                         return
                     elif index > 0 and index <= len(l) \
-                        and l[index-1][3] == 'FTA прослушиватель':
+                            and l[index-1][3] == 'FTA прослушиватель':
                         target = (l[index-1][1]).split(':')[0]
                         break
                 except TypeError:
@@ -229,56 +266,73 @@ def send(s) -> None:
     req_json = req.gen_msgs().encode()
     if len(req.files_data) == 0:
         print('Нет файлов для отправки')
-        return
-    hardlink_gen(req.server_dir, req.files_data)
+        return 1
+    if req.hardlink() == -1:
+        return -1
 
     # Подключение
     ClientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    ClientSock.connect((target, s.port))
+    print("Подключение...")
+    try:
+        ClientSock.connect((target, s.port))
+    except TimeoutError as e:
+        print('Ошибка подключения:', type(e).__name__, '-', e)
+        return -1
+    except ConnectionRefusedError:
+        print(f'Ошибка подключения к {target}:{s.port}')
+        return -1
     ClientSock.settimeout(3600)
+    try:
+        # Получение статуса клиента
+        msg = ClientSock.recv(50).decode()
+        if not 'FTA_Listen' in msg:
+            print('Клиент не в режиме прослушивания')
+            return 1
 
-    # Получение статуса клиента
-    msg = ClientSock.recv(50).decode()
-    if not 'FTA_Listen' in msg:
-        print('Клиент не в режиме прослушивания')
-        return 1
+        # Отправка запроса
+        ClientSock.send(req_json)
+        if not ClientSock.recv(50).decode() == 'FTA_conf':
+            print('Нет подтверждения получения информации')
+            return -1
 
-    # Отправка запроса
-    ClientSock.send(req_json)
-    if not ClientSock.recv(50).decode() == 'FTA_conf':
-        print('Нет подтверждения получения информации')
-        return 1
+        # Отправка списка файлов
+        ClientSock.send((req.sendable_filelist).encode())
+        print("Ожидание клиента")
 
-    # Отправка списка файлов
-    ClientSock.send((req.sendable_filelist).encode())
-    print("Ожидание клиента")
+        # Получение ответа
+        data = ClientSock.recv(128)
+        resp = json.loads(data.decode())
 
-    # Получение ответа
-    data = ClientSock.recv(128)
-    resp = json.loads(data.decode())
+        # Согласие
+        if is_ip(resp['confirm']) == 4:
+            print("Получено согласие")
+            ClientSock.close()
+            sleep(1)
+            # Старт сервера
+            # Пароль
+            if not s.pwd:
+                s.pwd = make_pass()
+                s.is_random = True
+            run_server(ip=resp['confirm'], port=s.port, pwd=s.pwd,
+                       server_dir=req.server_dir,
+                       is_send=True, write_perm=False, is_random=s.is_random,
+                       use_cert=True)
+            return 0
 
-    # Согласие
-    if is_ip(resp['confirm']) == 4:
-        print("Получено согласие")
-        ClientSock.close()
-        sleep(1)
-        # Старт сервера
-        # Пароль
-        if not s.pwd:
-            s.pwd = make_pass()
-            s.is_random = True
-        run_server(resp['confirm'], s.port, s.pwd, req.server_dir,
-                   True, is_random=True)
-        return 0
-
-    # Отказ
-    elif resp['confirm'] == False:
-        print("Отключение: Получен отказ")
-        ClientSock.close()
-        return 1
-    else:
+        # Отказ
+        elif resp['confirm'] == False:
+            print("Отключение: Получен отказ")
+            ClientSock.close()
+            return 1
+        else:
+            print('Соединение потеряно')
+            return -1
+    except json.decoder.JSONDecodeError:
         print('Соединение потеряно')
-        return 1
+        return -1
+    except ConnectionResetError as e:
+        print('Соединение потеряно:', type(e).__name__, '-', e)
+        return -1
 
 
 def hardlink_gen(server_dir, files_data):

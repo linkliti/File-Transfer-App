@@ -9,8 +9,14 @@ from FTA.__main__ import DEFAULT_ARG
 
 @pytest.fixture
 def files():
+    # Очистка
     util.clear_folder('./test_files')
     util.clear_folder('./fta_received')
+    # Существующий файл
+    os.makedirs('./fta_received', exist_ok=True)
+    with open(f"./fta_received/1.txt", "w") as f:
+        f.write('existing file')
+    # Отправляемые файлы
     os.makedirs('./test_files/subfolder/moredata', exist_ok=True)
     os.makedirs('./test_files/subfolder2', exist_ok=True)
     for symb in ('1', '2', '3'):
@@ -35,6 +41,36 @@ def udata():
     args['<files>'] = ['.']
     session = init.UserData(args)
     return session
+
+
+def test_self_deny_legacy_response(monkeypatch, udata, files):
+    # Самоотправка запроса (отказ) [режим совместимости]
+    import concurrent.futures
+    action = ['n', 'f']
+
+    def alt_input(x):
+        act = action.pop()
+        print(x, act, sep='')
+        return act
+
+    # Переопределение input()
+    monkeypatch.setattr('builtins.input', alt_input)
+
+    def cl(udata):
+        return client.listen(udata)
+
+    def serv(udata):
+        return server.send(udata)
+
+    udata.is_legacy = True
+    udata.target_ip = [udata.ip]
+    udata.file_targets = 'F:/1'
+    th1 = Thread(target=cl, args=(udata,), daemon=True)
+    th1.start()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(serv, udata)
+        val = future.result()
+    assert val == 1
 
 
 def test_self_deny_response(monkeypatch, udata, files):

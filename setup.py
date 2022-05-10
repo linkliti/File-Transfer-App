@@ -39,13 +39,14 @@ setuptools.setup(
         'pyqt5',
         'docopt',
         'pyftpdlib',
-        'tabulate'
+        'tabulate',
+        'psutil',
+        'pyOpenSSL'
     ],
     extras_require={
         'dev': [
             'setuptools',
             'pytest',
-            'setuptools',
             'autopep8',
             'sphinx',
             'sphinx_rtd_theme'

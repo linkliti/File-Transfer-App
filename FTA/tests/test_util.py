@@ -21,6 +21,14 @@ def test_drive(file, drive):
     assert util.drive(file, '') == drive
 
 
+@pytest.mark.parametrize('disk,res', [
+    ('d:', False),
+    ('f:', True),
+])
+def test_is_fat32_or_ronly(disk, res):
+    assert util.is_fat32_or_ronly(disk) == res
+
+
 def test_variable_size():
     # Размер переменной (дебаг)
     var = 'FTA_Send_Server'
@@ -61,7 +69,7 @@ def test_homedir():
 
 def test_parse_folder(files):
     # Проверка получения списка файлов (дебаг)
-    for elem in util.parse_folder('../project/test_files'):
+    for elem in util.parse_folder('../project/test_files')[1]:
         print(elem)
 
 

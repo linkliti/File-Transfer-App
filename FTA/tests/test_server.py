@@ -27,6 +27,23 @@ def test_server_run(udata, files):
     print("Done")
 
 
+def test_legacy_server_run(udata, files):
+    # Тестовый запуск сервера в режиме совместимости
+    from time import sleep
+    udata.file_targets = 'F:/1'
+    udata.pwd = '90'
+    udata.write = True
+    udata.is_legacy = True
+    udata.port = 2021
+    udata.is_random = False
+    thread = Thread(target=server.server, args=(udata,))
+    thread.daemon = True
+    thread.start()
+    print("Starting server for 3 seconds")
+    sleep(3)
+    print("Done")
+
+
 def test_req_data(udata, files):
     # Проверка отправляемых данных (дебаг)
     udata.file_targets = [

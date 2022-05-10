@@ -1,26 +1,46 @@
 """
 File Transfer App
 
-gui     - Графический интерфейс (автозапуск если нет аргументов)
-scan    - Сканирование IP адресов (по умолч. - локальные)
+gui     - Графический интерфейс
+            (автозапуск если нет аргументов)
+scan    - Сканирование IP адресов
+            (по умолч. - локальные)
 server  - Запуск FTP сервера
-send    - Запуск FTP сервера и отправка запроса цели
-listen  - Режим ожидания запросов (по умолч. - прослушка локального адреса)
+send    - Отправка запроса и запуск временного FTP сервера
+listen  - Режим ожидания запросов
+            (по умолч. - прослушка локального адреса)
+
+legacy  - Режим совместимости с FAT32 и Read-Only дисками
+            (передача одной папки)
 
 Usage:
     FTA [gui]
     FTA (-h|--help|--version)
-    FTA scan    [<target_ip>]...
-    FTA server  [<files>]...                 [-p=<port>] [--pwd=<pwd>] [-w]
-    FTA send    <target_ip>   [<files>]...   [-p=<port>] [--pwd=<pwd>]
-    FTA listen  [<save_path>] [<target_ip>]  [-p=<port>] [--pwd=<pwd>] [--auto-accept]
+    FTA scan
+        [<target_ip>]...
+    FTA server legacy
+        [<folder>]    [--write] [--pwd=<pwd>] [-i=<ip>] [-p=<port>] [--no_cert]
+    FTA server
+        [<files>]...  [--write] [--pwd=<pwd>] [-i=<ip>] [-p=<port>] [--no_cert]
+    FTA send legacy
+        <target_ip>   [<folder>]    [--pwd=<pwd>] [-p=<port>]
+    FTA send
+        <target_ip>   [<files>]...  [--pwd=<pwd>] [-p=<port>]
+    FTA listen
+        [<save_path>] [<target_ip>] [--pwd=<pwd>] [-p=<port>] [--auto-accept]
 
 Options:
-    --version               Показать версию
+    <files>                 Пути отправляемых файлов и папок
+    <folder>                Путь отправляемой папки (режим совместимости)
+    <save_path>             Путь сохранения файлов (по умолч: ./fta_received)
+    <target_ip>             Целевой IP адрес (несколько если сканер)
+    --version               Показать версию программы
     -h --help               Показать помощь
-    -p --port=<port>        Порт [default: 2121]
-    -w --write              Разрешение на изменение файлов
-    --pwd=<pwd>             Пароль (FTP сервер)
+    --no_cert               Разрешить соединения без TLS (только сервер)
+    -i --ip=<ip>            Используемый IP для сервера
+    -p --port=<port>        Порт (по умолч: 2121)
+    -w --write              Разрешение на изменение файлов (сервер)
+    --pwd=<pwd>             Пароль FTP сервера
     -a --auto-accept        Подтверждать прием файлов
 """
 from docopt import docopt
@@ -30,14 +50,18 @@ from FTA.init import text_mode, window_mode
 
 DEFAULT_ARG = {'--auto-accept': False,
                '--help': False,
-               '--port': '2121',
+               '--ip': None,
+               '--no_cert': False,
+               '--port': None,
                '--pwd': None,
                '--version': False,
                '--write': False,
                '<files>': [],
+               '<folder>': None,
                '<save_path>': None,
                '<target_ip>': [],
                'gui': True,
+               'legacy': False,
                'listen': False,
                'scan': False,
                'send': False,
@@ -54,5 +78,5 @@ if __name__ == '__main__':
     if args['gui']:
         window_mode()
     else:
-        #print(args)
+        # print(args)
         text_mode(args)

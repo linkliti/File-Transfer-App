@@ -18,8 +18,9 @@ sys.path.insert(0, os.path.abspath('../FTA'))
 # -- Project information -----------------------------------------------------
 
 project = 'File Transfer App'
-copyright = '2022, Alexander Popov'
-author = 'Alexander Popov'
+copyright = '2022, Александр Попов'
+author = 'Александр Попов'
+language = 'ru'
 
 # The full version, including alpha/beta/rc tags
 release = '1.0.0'
@@ -53,6 +54,9 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
+html_theme_options = {
+    'display_version': True,
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
