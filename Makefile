@@ -9,13 +9,13 @@ endif
 # Сообщение по умолчанию
 default:
 	@echo Commands:
-	@echo build, doc, reqs, venv, pep8
+	@echo build, doc, reqs, pep8
 	@echo install, dev, remove
 	@echo run
 	@echo docker_: build, run, stop, term
 
 # Список зависимостей
-reqs: remove
+reqs:
 	@python -m pip list --format=freeze > requirements.txt
 
 # Сборка пакета
@@ -43,6 +43,7 @@ remove:
 
 # Форматирование кода
 pep8:
+	@pip install autopep8
 	@python -m autopep8 --in-place --recursive ./FTA
 	@python -m autopep8 --in-place setup.py
 
