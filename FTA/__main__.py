@@ -76,7 +76,7 @@ if __name__ == '__main__':
         args = DEFAULT_ARG
     # Запуск граф. интерф. при флаге gui или если нет флагов
     if args['gui']:
-        window_mode()
+        window_mode(DEFAULT_ARG)
     else:
         # print(args)
         text_mode(args)

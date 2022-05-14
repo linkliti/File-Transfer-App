@@ -29,6 +29,7 @@ setuptools.setup(
     packages=['FTA'],
     package_data={
         'FTA': ['style/*'],
+        'FTA': ['cert/*'],
     },
     entry_points={
         'console_scripts': [
@@ -41,7 +42,8 @@ setuptools.setup(
         'pyftpdlib',
         'tabulate',
         'psutil',
-        'pyOpenSSL'
+        'pyOpenSSL',
+        'netifaces',
     ],
     extras_require={
         'dev': [

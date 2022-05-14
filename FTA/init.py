@@ -1,20 +1,15 @@
-import os
 import socket
 import sys
-from threading import Thread
-from time import sleep
-
-from PyQt5 import QtGui, uic
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import *
 
 from FTA.client import listen, scan
+from FTA.gui import MainWindow
 from FTA.server import send, server
-from FTA.util import clear_folder, get_ip, homedir, pkgfile, is_ip
+from FTA.util import Thread_Process, clear_folder, get_ip, is_ip, sleep
 
 
 class UserData():
     """ Класс данных пользователя \n
+        \n |is_gui          - Флаг графического интерфейса
         \n |ip              - IP адрес текущего ПК
         \n |port            - Используемый порт
         \n |hostname        - Имя текущего ПК
@@ -33,6 +28,7 @@ class UserData():
     """
 
     def __init__(self, args):
+        self.is_gui = False
         self.ip = args['--ip'] if is_ip(args['--ip']) == 4 else get_ip()
         self.port = int(args['--port'] or 2121)
         self.hostname = socket.gethostname()
@@ -47,7 +43,7 @@ class UserData():
             self.file_targets = args['<folder>'] if args['<folder>'] \
                 else '.'
         else:
-            self.file_targets = args['<files>'] if args['<files>'] else ['.']
+            self.file_targets = args['<files>'] if args['<files>'] else []
         self.write = bool(args['--write'])
         self.server_dir = ''
 
@@ -61,6 +57,7 @@ class UserData():
 def text_mode(args) -> None:
     """Консольный режим работы"""
     try:
+        # Общий UserData между независ. процессами
         session = UserData(args)
         # Режим работы
         if args['listen']:
@@ -72,7 +69,7 @@ def text_mode(args) -> None:
         elif args['server']:
             func = server
         # Запуск основного процесса
-        thread = Thread(target=func, args=(session,))
+        thread = Thread_Process(session, func)
         thread.daemon = True
         thread.start()
         # Не завершать работу программы
@@ -86,23 +83,21 @@ def text_mode(args) -> None:
         sys.exit()
 
 
-def window_mode() -> None:
+def window_mode(DEFAULT_ARG) -> None:
     """Графический режим работы"""
-    class MainWindow(QMainWindow):
-        """Класс графического интерфейса"""
-        def hello():
-            print("hello")
-
-        def __init__(self):
-            super().__init__()
-            uic.loadUi(pkgfile('style/mainwindow.ui'), self)
-            self.setWindowIcon(QtGui.QIcon(pkgfile('style/icon.svg')))
-            self.pushButton.clicked.connect(MainWindow.hello)
-
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    app.exec()
+    try:
+        from PyQt5.QtWidgets import QApplication
+        app = QApplication(sys.argv)
+        # Общий UserData между независ. процессами
+        session = UserData(DEFAULT_ARG)
+        window = MainWindow(session)
+        window.show()
+        app.exec()
+        raise SystemExit
+    except (KeyboardInterrupt, SystemExit):
+        if session.server_dir:
+            clear_folder(session.server_dir, safe_flag=True)
+        sys.exit()
 
 
 if __name__ == '__main__':

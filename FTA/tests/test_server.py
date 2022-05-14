@@ -55,6 +55,7 @@ def test_req_data(udata, files):
         'test_files',
         'kek',
         '../project/test_files/subfolder2/..',
+        '.'
     ]
     req = server.RequestData(udata)
     print()

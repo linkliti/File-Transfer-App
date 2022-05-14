@@ -4,7 +4,6 @@ import os
 import socket
 import sys
 from inspect import ismethod
-from time import sleep
 
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import TLS_FTPHandler
@@ -14,7 +13,8 @@ from pyftpdlib.servers import FTPServer
 from FTA.__init__ import __version__
 from FTA.client import scanner
 from FTA.util import (abs_path, clear_folder, copy_handler, drive, hlink,
-                      is_ip, parse_folder, make_pass, is_fat32_or_ronly, pkgfile)
+                      is_fat32_or_ronly, is_ip, make_pass, parse_folder,
+                      pkgfile)
 
 
 def server(s) -> None:
@@ -23,6 +23,9 @@ def server(s) -> None:
     if len(serv.files_data) == 0:
         print('Нет файлов для отправки')
         return
+    # Очистка папки
+    if s.server_dir and not s.is_legacy:
+        clear_folder(s.server_dir, safe_flag=True)
     # Создание ссылок и выход при неудаче
     if serv.hardlink() == -1:
         return
@@ -32,29 +35,25 @@ def server(s) -> None:
         s.is_random = True
     # Сервер
     print(f'IP адрес: {s.ip}:{s.port}')
-    run_server(ip=s.ip, port=s.port, pwd=s.pwd, server_dir=serv.server_dir,
-               is_send=False, write_perm=s.write, user=s.user,
-               is_random=s.is_random, hostname=s.hostname, use_cert=s.use_cert)
+    server_process(ip=s.ip, port=s.port, pwd=s.pwd,
+                   server_dir=serv.server_dir,
+                   is_send=False, write_perm=s.write,
+                   user=s.user,
+                   is_random=s.is_random, hostname=s.hostname,
+                   use_cert=s.use_cert)
 
 
-class MyTLS_FTPHandler(TLS_FTPHandler):
-    """ Обработчик: Выход по завершению соединения """
-
-    def on_disconnect(self):
-        self.server.close_all()
-
-
-def run_server(ip, port, pwd, server_dir, is_send=False,
-               write_perm=False, user='fta_server',
-               is_random=True, hostname='', use_cert=True):
-    """Старт FTP Сервера"""
+def server_process(ip, port, pwd, server_dir, is_send=False,
+                   write_perm=False, user='fta_server',
+                   is_random=True, hostname='', use_cert=True):
+    """ Процесс сервера """
     # Отключить лог для передачи файлов
     if is_send:
         config_logging(level=logging.ERROR)
     # Авторизация
     authorizer = DummyAuthorizer()
     # Пользователь
-    rule = 'elrawMT' if write_perm else 'elr'  # Разрешение на изменение файлов
+    rule = 'elrawMT' if write_perm else 'elr'  # Разрешение на  изменение файлов
     authorizer.add_user(user, pwd, server_dir, rule)
     # Обработчик
     handler = MyTLS_FTPHandler if is_send else TLS_FTPHandler
@@ -63,7 +62,7 @@ def run_server(ip, port, pwd, server_dir, is_send=False,
         handler.tls_control_required = True
         handler.tls_data_required = True
     else:
-        print("Внимание: Возможно незашифрованное подключение")
+        print("[!] Возможно незашифрованное подключение")
     handler.authorizer = authorizer
     # Баннер при подключении
     handler.banner = "FTA_Send_Server" if is_send else f'FTA_Server {hostname}'
@@ -78,13 +77,16 @@ def run_server(ip, port, pwd, server_dir, is_send=False,
     server.max_cons = conn_lim
     server.max_cons_per_ip = conn_lim
     server.max_login_attempts = 3
-    # Лог логина и пароля если случайные
-    if is_random:
-        print(f"Данные для входа: {user} {pwd}")
     # Старт
-    print("Сервер запущен")
     server.serve_forever()
-    print("Сервер выключен")
+
+
+class MyTLS_FTPHandler(TLS_FTPHandler):
+    """ Обработчик: Выход по завершению соединения """
+
+    def on_disconnect(self):
+        """ Функция вызываемая при отключении клиента """
+        self.server.close_all()
 
 
 class ServerData():
@@ -180,7 +182,7 @@ class ServerData():
         """
         if not self.is_legacy:
             if is_fat32_or_ronly(self.server_dir.rstrip('/.fta_shared')):
-                print("Неподдерживаемый диск")
+                print("Неподдерживаемый диск. Используйте режим совместимости")
                 return -1
             hardlink_gen(self.server_dir, self.files_data)
         return 0
@@ -240,6 +242,9 @@ class RequestData(ServerData):
 
 def send(s) -> None:
     """ Отправка запроса на передачу файлов """
+    # Автоматический режим
+    if s.target_ip == ['']:
+        s.target_ip = ['auto']
     # Выбор IP
     if len(s.target_ip) == 1 and is_ip(s.target_ip[0]) == 4:
         target = s.target_ip[0]
@@ -248,7 +253,10 @@ def send(s) -> None:
         if len(l):
             while True:
                 try:
-                    index = int(input('Введите индекс: '))
+                    if s.is_gui:
+                        print("[!] Требуется подтверждение в консоли")
+                    print('Введите индекс: ', end='')
+                    index = int(input())
                     if index == 0:
                         print('Отмена')
                         return
@@ -267,6 +275,9 @@ def send(s) -> None:
     if len(req.files_data) == 0:
         print('Нет файлов для отправки')
         return 1
+    # Очистка папки
+    if s.server_dir and not s.is_legacy:
+        clear_folder(s.server_dir, safe_flag=True)
     if req.hardlink() == -1:
         return -1
 
@@ -307,16 +318,15 @@ def send(s) -> None:
         if is_ip(resp['confirm']) == 4:
             print("Получено согласие")
             ClientSock.close()
-            sleep(1)
             # Старт сервера
             # Пароль
             if not s.pwd:
                 s.pwd = make_pass()
                 s.is_random = True
-            run_server(ip=resp['confirm'], port=s.port, pwd=s.pwd,
-                       server_dir=req.server_dir,
-                       is_send=True, write_perm=False, is_random=s.is_random,
-                       use_cert=True)
+            server_process(ip=resp['confirm'], port=s.port, pwd=s.pwd,
+                           server_dir=req.server_dir,
+                           is_send=True, write_perm=False, is_random=s.is_random,
+                           use_cert=True)
             return 0
 
         # Отказ

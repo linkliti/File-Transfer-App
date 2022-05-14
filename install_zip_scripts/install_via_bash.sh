@@ -1,6 +1,7 @@
 $FILE='./FTA-1.0.0.zip'
 if [ -f "$FILE" ]; then
-	pip install --yes $FILE
+	pip install setuptools --upgrade
+	pip install $FILE
 	python -m FTA -h
     $SHELL
 else

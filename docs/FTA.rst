@@ -12,6 +12,14 @@ FTA.client module
    :undoc-members:
    :show-inheritance:
 
+FTA.gui module
+--------------
+
+.. automodule:: FTA.gui
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 FTA.init module
 ---------------
 

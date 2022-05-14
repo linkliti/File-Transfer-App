@@ -1,12 +1,14 @@
-import json
-import socket
 import ftplib
+import json
 import os
+import socket
 from threading import Lock, Thread
+
 from tabulate import tabulate
 
 from FTA.__init__ import __version__
-from FTA.util import copy_handler, get_all_ip, is_ip, readable_size, abs_path, get_console_width
+from FTA.util import (abs_path, copy_handler, get_all_ip, get_console_width,
+                      is_ip, readable_size)
 
 
 class Scan_Threader:
@@ -166,9 +168,11 @@ def scanner(target_ip, port) -> list or None:
 
 def listen(s) -> None:
     """ Ожидание отправителя"""
-    # Прослушивание
     try:
-        ip = s.target_ip[0]
+        if not s.is_gui:
+            ip = s.target_ip[0]
+        else:
+            ip = s.ip
     except IndexError:
         ip = s.ip
     print(f'Прослушивание "{ip}:{s.port}"...')
@@ -205,6 +209,7 @@ class Metadata():
     """
 
     def __init__(self, ServerSock, s):
+        self.s = s
         self.status = 'ok'
         self.sock = ServerSock
         self.hostname = s.hostname
@@ -248,6 +253,8 @@ class Metadata():
                 self.port = req['port']
                 # Получение списка файлов
                 temp_list = {}
+                size = readable_size(req['files_list_size'])
+                print(f'Загрузка списка файлов размером {size[0]} {size[1]}')
                 data = clientConnected.recv(req['files_list_size'])
                 temp_list = json.loads(data.decode())
                 self.files_list = {**self.files_list, **temp_list}
@@ -274,40 +281,9 @@ class Metadata():
                 print('Информация:', type(e).__name__, '-', e)
                 clientConnected.close()
                 return -1
-
             # Информирование
-            print(f"Запрос на передачу от {req['hostname']}")
-            print(f"Всего файлов: {req['files_count']}", end='; ')
-            print(f"Размер:", ' '.join(str(x) for x in
-                                       readable_size(req['files_size'])))
-            printable_list = tabulate([
-                (k, ' '.join(str(x) for x in readable_size(v))) for k, v
-                in self.files_list.items()],
-                headers=['Файл', 'Размер'])
-            while True:
-                if self.auto_accept:
-                    confirm = True
-                    self.status = 'confirm'
-                    break
-                try:
-                    q = input(f"Согласиться? (Да|Нет|Файлы): ")
-                except:
-                    confirm = False
-                    break
-                # Согласие
-                if q[0] in ('y', 'Y', '1', 'Д', 'д'):
-                    confirm = True
-                    self.status = 'confirm'
-                    break
-                # Список файлов
-                elif q[0] in ('L', 'l', 'Л', 'л', 'Ф',
-                              'ф', 'F', 'f', 'С', 'с'):
-                    print(printable_list)
-                    print()
-                # Отказ
-                else:
-                    confirm = False
-                    break
+            confirm = self.request_msg(req, self.s.is_gui)
+
             # Отправка ответа
             resp = json.dumps(
                 {'confirm': (cl_adr[0] if confirm else False)})
@@ -329,13 +305,14 @@ class Metadata():
             print(f'Подключение к: {self.ip}:{self.port}')
             ftp.connect(self.ip, self.port)
             # Пароль
-            if not login(self.user, self.pwd, ftp.login):
+
+            if not login(self.user, self.pwd, ftp.login, is_gui=self.s.is_gui):
                 print("Ошибка FTP: Не удалось подключиться")
                 ftp.close()
                 return
 
             # Прогресс бар
-            printProgressBar(0, len(self.files_list))
+            printProgressBar(0, len(self.files_list), is_gui=self.s.is_gui)
             i = 0
             # Скачивание
             ftp.prot_p()
@@ -353,21 +330,58 @@ class Metadata():
                     ftp.retrbinary('RETR ' + file, my_file.write, 1024)
                 # Обновление прогресс бара
                 i += 1
-                printProgressBar(i, len(self.files_list))
+                printProgressBar(i, len(self.files_list), is_gui=self.s.is_gui)
             print('Скачивание завершено')
             ftp.close()
         except ftplib.all_errors as e:
             print('Ошибка FTP:', type(e).__name__, '-', e)
 
+    def request_msg(self, req, is_gui=False):
+        """ Функция текстового информирования """
+        print(f"Запрос на передачу от {req['hostname']}")
+        print(f"Всего файлов: {req['files_count']}", end='; ')
+        print(f"Размер:", ' '.join(str(x) for x in
+                                   readable_size(req['files_size'])))
+        printable_list = tabulate([
+            (k, ' '.join(str(x) for x in readable_size(v))) for k, v
+            in self.files_list.items()],
+            headers=['Файл', 'Размер'])
+        if not self.auto_accept and is_gui:
+            print("[!] Требуется подтверждение в консоли")
+        while True:
+            if self.auto_accept:
+                self.status = 'confirm'
+                return True
+            try:
+                print("Согласиться? (Да|Нет|Файлы): ", end='')
+                q = input()
+            except:
+                return False
+            # Согласие
+            if q[0] in ('y', 'Y', '1', 'Д', 'д', 'да', 'Да', 'yes'):
+                self.status = 'confirm'
+                return True
+            # Список файлов
+            elif q[0] in ('L', 'l', 'Л', 'л', 'Ф',
+                          'ф', 'F', 'f', 'С', 'с', 'файлы', 'Файлы', 'files'):
+                print()
+                print(printable_list)
+                print()
+            # Отказ
+            else:
+                return False
+
 
 def printProgressBar(iteration, total, prefix='Прогресс:', suffix='завершено ',
                      decimals=1, fill='█',
-                     printEnd="\r\n"):
+                     printEnd="\r\n", is_gui=False):
     """
     Прогресс бар для списка скачиваемых файлов
     """
-    length, printEnd = get_console_width()  # Длина терминала
-
+    if is_gui:
+        length, printEnd = (10, '\r\n')
+    else:
+        length, printEnd = get_console_width()  # Длина терминала
     percent = ("{0:." + str(decimals) + "f}").format(100 *
                                                      (iteration / float(total)))
     filledLength = int(length * iteration // total)
@@ -381,12 +395,15 @@ def printProgressBar(iteration, total, prefix='Прогресс:', suffix='за�
         print()
 
 
-def login(user, pwd, login_func, attempt=0):
+def login(user, pwd, login_func, attempt=0, is_gui=False):
     """ Функция логина на сервера """
     if attempt == 3:
         return 0
     if not pwd:
-        new_pass = str(input('Введите пароль: '))
+        if is_gui:
+            print('[!] Требуется ввод пароля в консоль')
+        print('Введите пароль: ', end='')
+        new_pass = str(input())
     else:
         new_pass = pwd
     try:
@@ -394,7 +411,8 @@ def login(user, pwd, login_func, attempt=0):
         return 1
     except ftplib.error_perm as e:
         print('Неверный пароль')
-        return login(user, None, login_func, attempt+1)
+        res = login(user, None, login_func, attempt+1)
+        return res
 
 
 if __name__ == '__main__':

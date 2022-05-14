@@ -1,20 +1,54 @@
-from __future__ import absolute_import
-
+import ctypes
 import os
 import re
 import secrets
 import shutil
 import socket
 import string
-import subprocess
-import sys
+import threading
 from platform import uname
 
 import netifaces
 import psutil
 from pkg_resources import resource_filename
+from PyQt5.QtTest import QTest
 
 SIZE_VAL = ('байт', 'КБайт', 'МБайт', 'ГБайт', 'ТБайт', 'ПБайт')
+
+
+def sleep(t):
+    """ Функция ожидания """
+    QTest.qWait(t * 1000)
+
+
+class Thread_Process(threading.Thread):
+    """ Класс процесса с методом остановки"""
+
+    def __init__(self, session, func):
+        threading.Thread.__init__(self)
+        self.session = session
+        self.func = func
+
+    def run(self):
+        """ Запуск процесса """
+        self.func(self.session)
+
+    def get_id(self):
+        """ Возврат ID процесса """
+        if hasattr(self, '_thread_id'):
+            return self._thread_id
+        for id, thread in threading._active.items():
+            if thread is self:
+                return id
+
+    def raise_exception(self):
+        """ Остановка процесса """
+        thread_id = self.get_id()
+        res = ctypes.pythonapi \
+            .PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+            print('Exception raise failure')
 
 
 def is_fat32_or_ronly(path):
@@ -107,6 +141,19 @@ def abs_path(path) -> str:
     return os.path.abspath(path).replace('\\', '/')
 
 
+""" Удаление файлов 'только для чтения'
+def del_ronly(action, name, exc):
+
+    try:
+        if os.name == 'nt':
+            #subprocess.Popen(["cmd.exe", "/c", "del",  "/f", name])
+        else:
+            os.unlink(file_path)
+    except Exception as e:
+        print(f'Не удалось удалить {name} : {e}')
+"""
+
+
 def clear_folder(folder_path, safe_flag=False) -> None:
     """Очистить содержимое папки"""
     # Флаг безопасной очистки
@@ -117,10 +164,10 @@ def clear_folder(folder_path, safe_flag=False) -> None:
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
         try:
+            # Файл / ссылка
             if os.path.isfile(file_path) or os.path.islink(file_path):
                 os.unlink(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
+            # Папка
             if os.path.exists(folder_path):
                 shutil.rmtree(folder_path)
         except Exception as e:
