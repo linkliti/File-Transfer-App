@@ -258,7 +258,7 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;IP Адреса&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;IP Адреса (ввод через пробел или новую строку)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
@@ -385,6 +385,9 @@ IP адресам</string>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="cursor">
+             <cursorShape>PointingHandCursor</cursorShape>
+            </property>
             <property name="text">
              <string>Очистить</string>
             </property>
@@ -457,6 +460,9 @@ p, li { white-space: pre-wrap; }
         </item>
         <item row="2" column="2" colspan="3">
          <widget class="QPushButton" name="fTableSelectFolder">
+          <property name="cursor">
+           <cursorShape>PointingHandCursor</cursorShape>
+          </property>
           <property name="text">
            <string>Папка</string>
           </property>
@@ -464,6 +470,9 @@ p, li { white-space: pre-wrap; }
         </item>
         <item row="1" column="1" colspan="4">
          <widget class="QPushButton" name="fTableClear">
+          <property name="cursor">
+           <cursorShape>PointingHandCursor</cursorShape>
+          </property>
           <property name="text">
            <string>Очистить список</string>
           </property>
@@ -764,6 +773,9 @@ p, li { white-space: pre-wrap; }
       </item>
       <item row="4" column="1">
        <widget class="QPushButton" name="pwd_field_random">
+        <property name="cursor">
+         <cursorShape>PointingHandCursor</cursorShape>
+        </property>
         <property name="text">
          <string>Случайный</string>
         </property>

@@ -31,7 +31,7 @@ doc: pep8
 
 # Установка
 install: build
-	@pip install dist\FTA-1.0.0.zip
+	@pip install dist\FTA-1.0.1.zip
 
 # Установка в режиме разработчика
 dev:
@@ -68,6 +68,6 @@ docker_stop:
 docker_term:
 	@docker run -it fta_image bash
 
-# Тестирование
+# Тестирование (FTA.py::test_self_deny_response)
 test:
-	@python -m pytest -s ./FTA/tests/test_FTA.py$(ARG)
+	@python -m pytest -s ./FTA/tests/test_$(ARG)

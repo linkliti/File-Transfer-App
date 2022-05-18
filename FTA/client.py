@@ -19,7 +19,7 @@ class Scan_Threader:
         self.functions_lock = Lock()
         self.functions = []
         self.threads = []
-        self.nthreads = 255
+        self.nthreads = 256
         self.running = True
         self.print_lock = Lock()
         socket.setdefaulttimeout(0.1)
@@ -56,7 +56,8 @@ class Scan_Threader:
                 function(*args)
             except IndexError:
                 # Замедление работы
-                self.nthreads -= 5
+                if self.nthreads > 5:
+                    self.nthreads -= 5
 
         # Убрать процесс из списка процессов
         with self.thread_lock:

@@ -187,6 +187,7 @@ class MainWindow(QMainWindow):
 
     def enable_buttons(self, process):
         """ Включение кнопок и полей """
+        '''
         if process == 'server':
             self.serverToggle.setText('Запуск сервера')
         elif process == 'scan':
@@ -195,11 +196,13 @@ class MainWindow(QMainWindow):
             self.listenToggle.setText('Прослушивание')
         elif process == 'send':
             self.sendToggle.setText('Отправка')
+        '''
         for elem in self.toggleable_stuff:
             elem.setEnabled(True)
 
     def disable_buttons(self, process):
         """ Отключение кнопок и полей """
+        '''
         if process == 'server':
             self.serverToggle.setText('Выключить сервер')
         elif process == 'scan':
@@ -208,6 +211,7 @@ class MainWindow(QMainWindow):
             self.listenToggle.setText('Остановить прослушку')
         elif process == 'send':
             self.sendToggle.setText('Остановить отправку')
+        '''
         for elem in self.toggleable_stuff:
             elem.setEnabled(False)
 
@@ -229,7 +233,7 @@ class MainWindow(QMainWindow):
             func = listen
         elif process == 'scan':
             self.s.target_ip = re.split(
-                ';|,| |\n', self.scan_field.toPlainText())
+                ' |\n', self.scan_field.toPlainText())
             if self.s.target_ip == ['']:
                 self.s.target_ip = ['auto']
             func = scan
@@ -249,15 +253,17 @@ class MainWindow(QMainWindow):
         self.stopProcess(process)
 
     def stopProcess(self, process):
-        """ Попытка остановить процесс без завершения программы """
+        """ Завершение работы процесса """
         # Отключение кнопки
         getattr(self, process + 'Toggle').setEnabled(False)
         # Остановка процесса
+        '''
         if self.thread.is_alive() and not self.stop_flag:
             print(f'Остановка {process}...')
             if process == 'listen' or process == 'server':
                 print("[!] При ручном выходе требуется перезапуск")
             self.thread.raise_exception()
+        '''
         self.stop_flag = True
         # Выключение кнопки-выключателя
         getattr(self, process + 'Toggle').setEnabled(False)
@@ -276,8 +282,10 @@ class MainWindow(QMainWindow):
         getattr(self, process + 'Toggle').clicked.disconnect()
         getattr(self, process +
                 'Toggle').clicked.connect(lambda: self.stopProcess(process))
+        '''
         # Включение кнопки-выключателя
         getattr(self, process + 'Toggle').setEnabled(True)
+        '''
         # Процесс
         self.stop_flag = False
         self.runProcess(process)

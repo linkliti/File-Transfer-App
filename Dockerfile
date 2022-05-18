@@ -11,7 +11,9 @@ RUN apt install -y python3-pip \
     && ln -s python3 python
 
 # Пакеты Python через apt (быстрая установка)
-RUN apt install -y python3-docopt python3-pyqt5
+RUN apt install -y python3-pyqt5 python3-docopt \
+python3-pyftpdlib python3-tabulate \
+python3-psutil python3-netifaces
 
 # Пользователь
 RUN adduser --quiet --disabled-password qtuser && usermod -a -G audio qtuser
@@ -24,11 +26,12 @@ ADD ./dist /mnt/package
 ADD ./build/sphinx/html /mnt/doc
 
 # Установка пакета
-RUN cd /mnt/package && python -m pip install FTA-1.0.0.zip
+RUN cd /mnt/package && python -m pip install FTA-1.0.1.zip
 
 # Дисплей и пользователь
 ENV DISPLAY=host.docker.internal:0.0
 USER qtuser
+EXPOSE 2121
 
 # Запуск
 CMD ["python" , "-m" , "FTA"]
