@@ -5,4 +5,6 @@ from FTA.tests.test_FTA import files, udata
 
 
 def test_launch_gui():
-    init.window_mode(DEFAULT_ARG)
+    """ Запуск графического интерфейса (запускать отдельно)"""
+    with pytest.raises(SystemExit):
+        init.window_mode(DEFAULT_ARG)

@@ -57,7 +57,7 @@ def server_process(ip, port, pwd, server_dir, is_send=False,
     authorizer.add_user(user, pwd, server_dir, rule)
     # Обработчик
     handler = MyTLS_FTPHandler if is_send else TLS_FTPHandler
-    handler.certfile = pkgfile('cert/keycert.pem')
+    handler.certfile = pkgfile('cert/demo_keycert.pem')
     if use_cert:
         handler.tls_control_required = True
         handler.tls_data_required = True

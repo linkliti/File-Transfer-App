@@ -182,14 +182,12 @@ def listen(s) -> None:
             ServerSock.bind((ip, s.port))
             ServerSock.listen(1)
             connection = Metadata(ServerSock, s)
-            connection.get_metadata()
+            while connection.status == 'ok':
+                connection.get_metadata()
+                if connection.status == 'confirm':
+                    break
         if connection.status == 'confirm':
             connection.download_manager()
-        elif connection.status == 'ok':
-            listen(s)
-            return
-        else:
-            return
     except Exception as e:
         print('Ошибка прослушивания:', type(e).__name__, '-', e)
 
@@ -255,6 +253,12 @@ class Metadata():
                 # Получение списка файлов
                 temp_list = {}
                 size = readable_size(req['files_list_size'])
+                if req['files_list_size'] > 1024 * 1024: # Лимит 1 МБайт
+                    print(f'Отключение от {cl_adr[0]}:{cl_adr[1]}', end=' - ')
+                    print('Слишком большой список файлов:', end=' ')
+                    print(f"({req['files_list_size']} байт)")
+                    clientConnected.close()
+                    return -1
                 print(f'Загрузка списка файлов размером {size[0]} {size[1]}')
                 data = clientConnected.recv(req['files_list_size'])
                 temp_list = json.loads(data.decode())
@@ -272,8 +276,8 @@ class Metadata():
                 # Обработка запроса
                 # Разные версии
                 if not req['FTA_version'] == __version__:
-                    print(f"Разная версия программ (текущая: ", end=' ')
-                    print(f"{__version__} полученная: {req['FTA_version']}")
+                    print(f"Разная версия программ (текущая:", end=' ')
+                    print(f"{__version__} полученная: {req['FTA_version']})")
 
             # Неудачная обработка JSON
             except json.JSONDecodeError as e:
@@ -333,6 +337,7 @@ class Metadata():
                 i += 1
                 printProgressBar(i, len(self.files_list), is_gui=self.s.is_gui)
             print('Скачивание завершено')
+            ftp.quit()
             ftp.close()
         except ftplib.all_errors as e:
             print('Ошибка FTP:', type(e).__name__, '-', e)
@@ -370,6 +375,7 @@ class Metadata():
                 print()
             # Отказ
             else:
+                print('Отказ. Продолжение прослушивания')
                 return False
 
 

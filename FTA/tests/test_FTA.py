@@ -48,9 +48,9 @@ def test_self_deny_legacy_response(monkeypatch, udata, files):
     import concurrent.futures
     action = ['n', 'f']
 
-    def alt_input(x):
+    def alt_input():
         act = action.pop()
-        print(x, act, sep='')
+        #print(x, act, sep='')
         return act
 
     # Переопределение input()
@@ -78,9 +78,9 @@ def test_self_deny_response(monkeypatch, udata, files):
     import concurrent.futures
     action = ['n', 'f']
 
-    def alt_input(x):
+    def alt_input():
         act = action.pop()
-        print(x, act, sep='')
+        #print(x, act, sep='')
         return act
 
     # Переопределение input()
@@ -108,12 +108,12 @@ def test_self_deny_response(monkeypatch, udata, files):
 def test_self_accept_response(monkeypatch, udata, files):
     # Самоотправка запроса (согласие)
     import concurrent.futures
-    action = ['f', 'y', '150', '70', '901']
+    action = ['y', '150', '70', '90']
     action.reverse()
 
-    def alt_input(x):
+    def alt_input():
         act = action.pop()
-        print(x, act, sep='')
+        #print(x, act, sep='')
         return act
 
     # Переопределение input()

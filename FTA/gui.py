@@ -35,7 +35,10 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(app_icon)
 
         # Консоль console
-        sys.stdout = self.Console_write(self.console)
+        if os.name == 'nt':
+            sys.stdout = self.Console_write(self.console)
+        else:
+            self.console.setText('Используется внешняя консоль')
         self.console_ButtonClear.clicked.connect(self.clear_console)
 
         # Таблица файлов
