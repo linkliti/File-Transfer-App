@@ -77,6 +77,11 @@ def server_process(ip, port, pwd, server_dir, is_send=False,
     server.max_cons = conn_lim
     server.max_cons_per_ip = conn_lim
     server.max_login_attempts = 3
+    # Лог логина пароля если случайный пароль
+    if not is_send:
+        print('Логин: ', user)
+    if is_random:
+        print('Пароль:', pwd)
     # Старт
     server.serve_forever()
 

@@ -25,11 +25,9 @@ setuptools.setup(
     description='File Transfer App on Python',
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
-    include_package_data=True,
     packages=['FTA'],
     package_data={
-        'FTA': ['style/*'],
-        'FTA': ['cert/*'],
+        'FTA': ['cert/*', 'style/*']
     },
     entry_points={
         'console_scripts': [

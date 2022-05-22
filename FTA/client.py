@@ -253,7 +253,7 @@ class Metadata():
                 # Получение списка файлов
                 temp_list = {}
                 size = readable_size(req['files_list_size'])
-                if req['files_list_size'] > 1024 * 1024: # Лимит 1 МБайт
+                if req['files_list_size'] > 1024 * 1024:  # Лимит 1 МБайт
                     print(f'Отключение от {cl_adr[0]}:{cl_adr[1]}', end=' - ')
                     print('Слишком большой список файлов:', end=' ')
                     print(f"({req['files_list_size']} байт)")
