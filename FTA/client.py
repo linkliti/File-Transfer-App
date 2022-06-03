@@ -307,6 +307,7 @@ class Metadata():
                 os.makedirs(abs_path(self.save_path))
             # Подключение
             ftp = ftplib.FTP_TLS()
+            ftp.encoding = "UTF-8"
             print(f'Подключение к: {self.ip}:{self.port}')
             ftp.connect(self.ip, self.port)
             # Пароль

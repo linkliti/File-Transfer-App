@@ -26,7 +26,7 @@ ADD ./dist /mnt/package
 ADD ./build/sphinx/html /mnt/doc
 
 # Установка пакета
-RUN cd /mnt/package && python -m pip install FTA-1.0.1.zip
+RUN cd /mnt/package && python -m pip install FTA-1.0.2.zip
 
 # Дисплей и пользователь
 ENV DISPLAY=host.docker.internal:0.0

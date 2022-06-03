@@ -10,7 +10,7 @@
 2) Ввести команды
 ```
 pip install setuptools --upgrade
-pip install ./FTA-1.0.1.zip
+pip install ./FTA-1.0.2.zip
 ```
 
 ## Использование

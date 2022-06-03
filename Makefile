@@ -31,7 +31,7 @@ doc: pep8
 
 # Установка
 install: build
-	@pip install dist/FTA-1.0.1.zip
+	@pip install dist/FTA-1.0.2.zip
 
 # Установка в режиме разработчика
 dev:

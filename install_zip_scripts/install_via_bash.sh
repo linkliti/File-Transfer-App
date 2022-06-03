@@ -1,4 +1,4 @@
-$FILE='./FTA-1.0.1.zip'
+$FILE='./FTA-1.0.2.zip'
 if [ -f "$FILE" ]; then
 	pip install setuptools --upgrade
 	pip install $FILE

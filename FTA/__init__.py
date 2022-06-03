@@ -1,2 +1,2 @@
 # Используется для sphinx и pkg_resources.resource_filename
-__version__ = '1.0.1'
+__version__ = '1.0.2'
